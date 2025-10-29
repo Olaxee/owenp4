@@ -4,210 +4,466 @@
 <meta charset="UTF-8">
 <title>Puissance 4 P2P - Supabase</title>
 <style>
-/* === Styles comme avant (conserve ton design actuel) === */
+/* ---------- TYPOGRAPHIE GLOBALE ---------- */
 :root{
-  --bg:#071128; --card:#0e2436; --muted:#9fb7c7; --text:#e8f3fb;
-  --accent:#2ea44f; --accent-strong:#26a14a; --ghost:#133147;
-  --danger:#e06a4a; --glass: rgba(255,255,255,0.04);
-  --board-hole:#0b3a57; --hole-edge:#163a54;
+  --bg:#071128;           
+  --card:#0e2436;         
+  --muted:#9fb7c7;        
+  --text:#e8f3fb;         
+  --accent:#2ea44f;       
+  --accent-strong:#26a14a;
+  --ghost:#133147;        
+  --danger:#e06a4a;       
+  --glass: rgba(255,255,255,0.04);
+  --board-hole:#0b3a57;   
+  --hole-edge:#163a54;
   --disc-shadow: rgba(0,0,0,0.45);
 }
-*{box-sizing:border-box} html,body{height:100%;}
-body{margin:0;padding:0.9rem;font-family:-apple-system, "Inter", "Segoe UI", Roboto, sans-serif;
-background: linear-gradient(180deg,var(--bg) 0%, #052033 100%); color:var(--text);
-display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:0.8rem; min-height:100vh;}
-h1{margin:0.6rem 0 0;font-size:1.15rem;font-weight:700;text-align:center;max-width:420px;text-shadow:0 1px 0 rgba(0,0,0,0.45);}
-#loginContainer, #controls, #rematchContainer, #clocks, #playerInfo{width:100%; max-width:420px; display:flex; flex-direction:column; gap:0.45rem; padding:0.7rem; border-radius:12px; border:1px solid rgba(255,255,255,0.04); background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02)); box-shadow:0 6px 18px rgba(2,6,12,0.55), inset 0 1px 0 rgba(255,255,255,0.02);}
-input,textarea{width:100%; min-height:44px; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.06); background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03)); color:var(--text); font-size:0.95rem; outline:none; box-shadow:inset 0 1px 0 rgba(255,255,255,0.02);}
-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 14px;border-radius:12px;border:none;background:var(--ghost);color:var(--text);font-weight:700;font-size:0.95rem;cursor:pointer;transition: transform .08s ease, box-shadow .12s ease, background .12s ease; box-shadow:0 6px 14px rgba(2,6,12,0.5);}
-#board{width:100%; max-width:420px; aspect-ratio:7/6; display:grid; grid-template-columns:repeat(7,1fr); grid-template-rows:repeat(6,1fr); gap:8px; padding:14px; border-radius:16px; background:linear-gradient(180deg,var(--board-hole), #082a3d); box-shadow:0 18px 40px rgba(1,8,15,0.7), inset 0 2px 10px rgba(255,255,255,0.02);}
-.cell{width:100%; height:100%; border-radius:50%; display:flex; align-items:center; justify-content:center; background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.03), transparent 20%), linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03)); box-shadow: inset 0 -6px 12px rgba(0,0,0,0.6), inset 0 2px 6px rgba(255,255,255,0.02); cursor:pointer; position:relative; overflow:hidden; border:1px solid rgba(255,255,255,0.02);}
-.disc{width:86%; height:86%; border-radius:50%; background:#111; box-shadow:0 6px 14px var(--disc-shadow), inset 0 2px 8px rgba(255,255,255,0.03);}
-</style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
-</head>
-<body>
-<h1>Puissance 4 P2P</h1>
 
-<div id="loginContainer">
-  <input id="usernameInput" placeholder="Pseudo">
-  <input id="passwordInput" placeholder="Mot de passe">
-  <button id="createAccountBtn">Créer un compte</button>
-  <button id="loginBtn">Se connecter</button>
-  <div id="loginStatus"></div>
-</div>
+*{box-sizing:border-box}
+html,body{height:100%;}
 
-<div id="playerInfo" style="display:none;">
-  <div>Mon Elo : <span id="myElo"></span></div>
-  <div id="opponentContainer" style="display:none;">Adversaire : <span id="opName">—</span> (<span id="opElo">—</span>)</div>
-</div>
-
-<div id="controls" style="display:none;">
-  <button id="createOffer">Créer Offre</button>
-  <button id="createAnswer" disabled>Créer Réponse</button>
-  <textarea id="codeField" placeholder="Colle ou copie le code ici"></textarea><br>
-  <button id="applyCode">Appliquer Code</button>
-  <button id="copyCode">Copier Code</button>
-  <div id="status">Statut : Déconnecté</div>
-</div>
-
-<div id="board"></div>
-
-<script>
-// === Supabase ===
-const SUPABASE_URL = 'https://nowqsciorntrzvbaiuyv.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vd3FzY2lvcm50cnp2YmFpdXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NTAwMzIsImV4cCI6MjA3NzMyNjAzMn0.Fze-O9qq5llDxbF4mRKV-JgaLvU3Z8N-O7VfUTNFrQQ';
-const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-
-let currentUser = null;
-
-// === Auth / Profils ===
-async function createAccount() {
-  const username = usernameInput.value.trim();
-  const password = passwordInput.value.trim();
-  if(!username||!password){ loginStatus.textContent='Pseudo et mdp requis'; return; }
-  
-  // Vérifier doublon
-  const { data: existing } = await supabase.from('profiles').select().eq('username', username).single();
-  if(existing){ loginStatus.textContent='Pseudo déjà utilisé'; return; }
-  
-  const { data, error } = await supabase.from('profiles').insert([{ username, password, elo:1000 }]).select().single();
-  if(error){ loginStatus.textContent='Erreur: '+error.message; return; }
-  loginStatus.textContent='Compte créé! Connectez-vous';
+body {
+  margin: 0;
+  padding: 0.9rem;
+  font-family: -apple-system, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: linear-gradient(180deg,var(--bg) 0%, #052033 100%);
+  color:var(--text);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:flex-start;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  gap:0.8rem;
+  min-height:100vh;
 }
 
+/* ---------- TITRE ---------- */
+h1{
+  margin: 0.6rem 0 0;
+  font-size:1.15rem;
+  font-weight:700;
+  color:var(--text);
+  letter-spacing:0.2px;
+  text-align:center;
+  width:100%;
+  max-width:420px;
+  text-shadow: 0 1px 0 rgba(0,0,0,0.45);
+  padding: 8px 0;
+}
+
+/* ---------- CONTENEURS PRINCIPAUX (cartes) ---------- */
+#loginContainer, #controls, #rematchContainer, #clocks, #playerInfo {
+  width:100%;
+  max-width:420px;
+  display:flex;
+  flex-direction:column;
+  gap:0.45rem;
+  align-items:stretch;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+  padding:0.7rem;
+  border-radius:12px;
+  border: 1px solid rgba(255,255,255,0.04);
+  box-shadow: 0 6px 18px rgba(2,6,12,0.55), inset 0 1px 0 rgba(255,255,255,0.02);
+}
+
+#loginContainer{ padding-top:0.5rem }
+
+/* ---------- INPUTS ---------- */
+input[type="text"], input[type="password"], textarea {
+  width:100%;
+  min-height:44px;
+  padding: 10px 12px;
+  border-radius:10px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03));
+  color:var(--text);
+  font-size:0.95rem;
+  outline: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+  resize: vertical;
+  transition: box-shadow .12s ease, border-color .12s ease, transform .06s ease;
+}
+
+input::placeholder, textarea::placeholder {
+  color: rgba(255,255,255,0.35);
+  font-weight:500;
+}
+
+input:focus, textarea:focus{
+  border-color: rgba(46,164,79,0.9);
+  box-shadow: 0 6px 18px rgba(46,164,79,0.06), inset 0 1px 0 rgba(255,255,255,0.02);
+  transform: translateY(-1px);
+}
+
+textarea#codeField {
+  min-height:92px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;
+  font-size:0.88rem;
+}
+
+/* ---------- BOUTONS ---------- */
+button {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:44px;
+  padding: 10px 14px;
+  border-radius:12px;
+  border: none;
+  background: var(--ghost);
+  color: var(--text);
+  font-weight:700;
+  font-size:0.95rem;
+  cursor:pointer;
+  transition: transform .08s ease, box-shadow .12s ease, background .12s ease;
+  box-shadow: 0 6px 14px rgba(2,6,12,0.5);
+}
+
+#loginContainer button#loginBtn,
+#loginContainer button#createAccountBtn,
+#controls button#createOffer,
+#controls button#createAnswer,
+#controls button#applyCode,
+#rematchContainer button#rematchBtn {
+  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(38,161,74,0.18);
+}
+
+button#copyCode, button#declineBtn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.06);
+  color: var(--muted);
+  box-shadow:none;
+}
+
+#declineBtn{
+  min-width:44px;
+  width:44px;
+  padding:0;
+  font-size:1.05rem;
+  border-radius:10px;
+}
+
+button:hover{ transform: translateY(-2px); }
+button:active{ transform: translateY(0); box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
+
+button:disabled{
+  opacity:0.45;
+  cursor:not-allowed;
+  transform:none;
+  box-shadow:none;
+}
+
+#loginContainer > button, #controls > button { width:100%; }
+
+#status, #loginStatus, #rematchStatus {
+  color:var(--muted);
+  font-weight:600;
+  font-size:0.9rem;
+  padding:6px 8px;
+  border-radius:8px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));
+  border:1px solid rgba(255,255,255,0.02);
+}
+
+#playerInfo {
+  display:flex;
+  gap:12px;
+  align-items:center;
+  justify-content:space-between;
+  padding:8px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));
+}
+
+#playerInfo > div{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  font-size:0.95rem;
+  color:var(--text);
+}
+
+#playerInfo span{ font-weight:800; color: #fff; font-size:0.95rem; }
+
+#clocks {
+  display:flex;
+  gap:12px;
+  align-items:center;
+  justify-content:space-between;
+  padding:8px 10px;
+  border-radius:10px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03));
+  border:1px solid rgba(255,255,255,0.03);
+  font-weight:800;
+  font-size:0.95rem;
+}
+
+#board{
+  width:100%;
+  max-width:420px;
+  aspect-ratio: 7 / 6;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+  gap:8px;
+  padding: 14px;
+  border-radius:16px;
+  background: linear-gradient(180deg, var(--board-hole), #082a3d);
+  box-shadow: 0 18px 40px rgba(1,8,15,0.7), inset 0 2px 10px rgba(255,255,255,0.02);
+  transform: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+@media (max-width:420px){
+  #board{ padding:10px; gap:6px; border-radius:12px; }
+}
+
+.cell {
+  width:100%;
+  height:100%;
+  aspect-ratio: 1 / 1;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.03), transparent 20%),
+              linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03));
+  box-shadow: inset 0 -6px 12px rgba(0,0,0,0.6), inset 0 2px 6px rgba(255,255,255,0.02);
+  cursor: pointer;
+  transition: transform .08s ease;
+  position:relative;
+  overflow:hidden;
+  border: 1px solid rgba(255,255,255,0.02);
+}
+
+.cell:active{ transform: translateY(1px) scale(0.997); }
+
+.disc{
+  width:86%;
+  height:86%;
+  border-radius:50%;
+  background: #111;
+  box-shadow: 0 6px 14px var(--disc-shadow), inset 0 2px 8px rgba(255,255,255,0.03);              
+  transition: background .18s ease;              
+}              
+              
+.disc.red{ background: radial-gradient(circle at 30% 25%, #ff5c5c, #c80000); }              
+.disc.yellow{ background: radial-gradient(circle at 30% 25%, #ffea5c, #c7b800); }              
+              
+</style>              
+</head>              
+<body>              
+<h1>Puissance 4 P2P</h1>              
+
+<!-- LOGIN / REGISTER -->              
+<div id="loginContainer">              
+  <input type="text" id="username" placeholder="Pseudo" />              
+  <input type="password" id="password" placeholder="Mot de passe" />              
+  <button id="loginBtn">Se connecter</button>              
+  <button id="createAccountBtn">Créer un compte</button>              
+  <div id="loginStatus"></div>              
+</div>              
+
+<!-- PLAYER INFO -->              
+<div id="playerInfo" style="display:none;">              
+  <div>Vous: <span id="playerName"></span></div>              
+  <div>Elo: <span id="playerElo">0</span></div>              
+</div>              
+
+<!-- GAME BOARD -->              
+<div id="board" style="display:none;"></div>              
+
+<!-- REMATCH -->              
+<div id="rematchContainer" style="display:none;">              
+  <button id="rematchBtn">Revanche</button>              
+  <div id="rematchStatus"></div>              
+</div>              
+
+<!-- CLocks -->              
+<div id="clocks" style="display:none;">              
+  <span id="myClock">00:00</span>              
+  <span id="opponentClock">00:00</span>              
+</div>              
+
+<!-- WebRTC Offer/Answer -->              
+<div id="controls" style="display:none;">              
+  <textarea id="codeField" placeholder="Coller l'offre/answer ici"></textarea>              
+  <button id="applyCode">Appliquer le code</button>              
+</div>              
+
+<script type="module">              
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';              
+
+// Supabase config              
+const SUPABASE_URL = 'https://nowqsciorntrzvbaiuyv.supabase.co';              
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vd3FzY2lvcm50cnp2YmFpdXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NTAwMzIsImV4cCI6MjA3NzMyNjAzMn0.Fze-O9qq5llDxbF4mRKV-JgaLvU3Z8N-O7VfUTNFrQQ';              
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);              
+
+// GLOBALS              
+let player, gameState=[], turn=0, peerConnection, dataChannel;              
+const boardEl = document.getElementById('board');              
+const usernameInput = document.getElementById('username');              
+const passwordInput = document.getElementById('password');              
+const loginBtn = document.getElementById('loginBtn');              
+const createBtn = document.getElementById('createAccountBtn');              
+const loginStatus = document.getElementById('loginStatus');              
+const playerNameEl = document.getElementById('playerName');              
+const playerEloEl = document.getElementById('playerElo');              
+const rematchContainer = document.getElementById('rematchContainer');              
+const rematchBtn = document.getElementById('rematchBtn');              
+const rematchStatus = document.getElementById('rematchStatus');              
+const controls = document.getElementById('controls');              
+const codeField = document.getElementById('codeField');              
+const applyCodeBtn = document.getElementById('applyCode');              
+
+// ---------- AUTH ----------
 async function login() {
-  const username = usernameInput.value.trim();
-  const password = passwordInput.value.trim();
-  const { data, error } = await supabase.from('profiles').select().eq('username', username).eq('password', password).single();
-  if(error){ loginStatus.textContent='Erreur: '+error.message; return; }
-  currentUser = data;
-  myElo.textContent = currentUser.elo;
-  loginContainer.style.display='none';
-  controls.style.display='flex';
-  playerInfo.style.display='flex';
-}
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('username', usernameInput.value)
+    .eq('password', passwordInput.value)
+    .single();
 
-// === Evenements ===
-createAccountBtn.onclick = createAccount;
-loginBtn.onclick = login;
-
-// === Plateau (simplifié pour démo) ===
-const board = Array(6).fill().map(() => Array(7).fill(null));
-const boardDiv = document.getElementById('board');
-
-function renderBoard() {
-  boardDiv.innerHTML = '';
-  for (let r = 0; r < 6; r++) {
-    for (let c = 0; c < 7; c++) {
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      cell.dataset.row = r;
-      cell.dataset.col = c;
-      if (board[r][c]) {
-        const disc = document.createElement('div');
-        disc.className = 'disc';
-        disc.style.background = board[r][c] === 'red' ? 'red' : 'yellow';
-        cell.appendChild(disc);
-      }
-      cell.addEventListener('click', () => playColumn(c));
-      boardDiv.appendChild(cell);
-    }
+  if (error) {
+    loginStatus.textContent = 'Erreur: ' + error.message;
+    return;
   }
+  player = data;
+  loginStatus.textContent = 'Connecté';
+  setupGameUI();
 }
 
-let myTurn = true;
-let myColor = 'red';
-let peerConnection = null;
-let dataChannel = null;
+async function createAccount() {
+  // Vérifier si username existe déjà
+  const { data: existing } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('username', usernameInput.value)
+    .single();
 
-function playColumn(col) {
-  if (!myTurn) return;
-  for (let r = 5; r >= 0; r--) {
-    if (!board[r][col]) {
-      board[r][col] = myColor;
-      renderBoard();
-      myTurn = false;
-      sendMove(r, col, myColor);
-      checkWin(r, col, myColor);
-      break;
-    }
+  if (existing) {
+    loginStatus.textContent = 'Pseudo déjà utilisé';
+    return;
   }
-}
 
-// === Vérification victoire simple ===
-function checkWin(row, col, color) {
-  function countDir(dr, dc) {
-    let r = row, c = col, count = 0;
-    while (r >= 0 && r < 6 && c >= 0 && c < 7 && board[r][c] === color) {
-      count++; r += dr; c += dc;
-    }
-    return count - 1;
+  const { data, error } = await supabase
+    .from('profiles')
+    .insert([{ username: usernameInput.value, password: passwordInput.value, elo: 1000 }])
+    .select()
+    .single();
+
+  if (error) {
+    loginStatus.textContent = 'Erreur: ' + error.message;
+    return;
   }
-  const dirs = [[0,1],[1,0],[1,1],[1,-1]];
-  for (let [dr, dc] of dirs) {
-    if (countDir(dr, dc) + countDir(-dr, -dc) + 1 >= 4) {
-      alert(color + ' a gagné !');
-      return;
-    }
-  }
-}
 
-// === WebRTC P2P ===
-async function createOffer() {
-  peerConnection = new RTCPeerConnection();
-  dataChannel = peerConnection.createDataChannel('game');
-  setupDataChannel();
-  
-  const offer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(offer);
-  codeField.value = JSON.stringify(offer);
-  createAnswerBtn.disabled = false;
-}
+  loginStatus.textContent = 'Compte créé! Connectez-vous';
+}            
 
-async function createAnswer() {
-  peerConnection = new RTCPeerConnection();
-  peerConnection.ondatachannel = (event) => {
-    dataChannel = event.channel;
-    setupDataChannel();
-  };
-  
-  const offer = JSON.parse(codeField.value);
-  await peerConnection.setRemoteDescription(offer);
-  const answer = await peerConnection.createAnswer();
-  await peerConnection.setLocalDescription(answer);
-  codeField.value = JSON.stringify(answer);
-}
+loginBtn.onclick = login;              
+createBtn.onclick = createAccount;              
 
-async function applyCode() {
-  if (!peerConnection) return;
-  const code = JSON.parse(codeField.value);
-  await peerConnection.setRemoteDescription(code);
-}
+function setupGameUI(){              
+  document.getElementById('loginContainer').style.display='none';              
+  playerNameEl.textContent=player.username;              
+  playerEloEl.textContent=player.elo;              
+  document.getElementById('playerInfo').style.display='flex';              
+  boardEl.style.display='grid';              
+  rematchContainer.style.display='flex';              
+  controls.style.display='flex';              
+  renderBoard();              
+}              
 
-function setupDataChannel() {
-  dataChannel.onmessage = (event) => {
-    const { r, c, color } = JSON.parse(event.data);
-    board[r][c] = color;
-    myTurn = true;
-    renderBoard();
-    checkWin(r, c, color);
-  };
-}
+// ---------- BOARD ----------              
+function renderBoard(){              
+  boardEl.innerHTML='';              
+  for(let i=0;i<42;i++){              
+    const cell=document.createElement('div');              
+    cell.classList.add('cell');              
+    cell.dataset.index=i;              
+    if(gameState[i]){              
+      const disc=document.createElement('div');              
+      disc.classList.add('disc',gameState[i]==1?'red':'yellow');              
+      cell.appendChild(disc);              
+    }              
+    cell.onclick=()=>placeDisc(i%7);              
+    boardEl.appendChild(cell);              
+  }              
+}              
 
-function sendMove(r, c, color) {
-  if (dataChannel && dataChannel.readyState === 'open') {
-    dataChannel.send(JSON.stringify({ r, c, color }));
-  }
-}
+function placeDisc(col){              
+  if(!peerConnection) return alert('Connectez-vous à un adversaire d’abord');              
+  for(let row=5;row>=0;row--){              
+    let idx=row*7+col;              
+    if(!gameState[idx]){              
+      gameState[idx]=turn?2:1;              
+      turn=1-turn;              
+      renderBoard();              
+      sendMove(idx);              
+      checkWinner();              
+      break;              
+    }              
+  }              
+}              
 
-// === Evenements boutons ===
-createOfferBtn.onclick = createOffer;
-createAnswerBtn.onclick = createAnswer;
-applyCodeBtn.onclick = applyCode;
-copyCode.onclick = () => codeField.select() && document.execCommand('copy');
+// ---------- WINNER ----------              
+function checkWinner(){              
+  const lines=[              
+    // horizontales              
+    [0,1,2,3,4,5,6],[7,8,9,10,11,12],[14,15,16,17,18,19],[21,22,23,24,25,26],[28,29,30,31,32,33],[35,36,37,38,39,40],              
+    // verticales              
+    [0,7,14,21,28,35],[1,8,15,22,29,36],[2,9,16,23,30,37],[3,10,17,24,31,38],[4,11,18,25,32,39],[5,12,19,26,33,40],[6,13,20,27,34,41]              
+  ];              
+  for(const line of lines){              
+    const [a,b,c,d]=line;              
+    if(gameState[a] && gameState[a]==gameState[b] && gameState[a]==gameState[c] && gameState[a]==gameState[d]){              
+      alert(`Joueur ${gameState[a]} gagne !`);              
+      return;              
+    }              
+  }              
+}              
 
-renderBoard();
-</script>
-</body>
+// ---------- P2P WEBRTC ----------              
+applyCodeBtn.onclick=()=>{              
+  const code=codeField.value.trim();              
+  if(!peerConnection){              
+    peerConnection=new RTCPeerConnection();              
+    dataChannel=peerConnection.createDataChannel('game');              
+    dataChannel.onmessage=(e)=>receiveMove(e.data);              
+    peerConnection.ondatachannel=(e)=>{              
+      dataChannel=e.channel;              
+      dataChannel.onmessage=(ev)=>receiveMove(ev.data);              
+    }              
+  }              
+  const desc=JSON.parse(code);              
+  peerConnection.setRemoteDescription(desc);              
+  if(desc.type=='offer'){              
+    peerConnection.createAnswer().then(ans=>{              
+      peerConnection.setLocalDescription(ans);              
+      codeField.value=JSON.stringify(ans);              
+    });              
+  }              
+}              
+
+function sendMove(idx){              
+  if(dataChannel && dataChannel.readyState==='open'){              
+    dataChannel.send(idx);              
+  }              
+}              
+
+function receiveMove(idx){              
+  gameState[idx]=turn?2:1;              
+  turn=1-turn;              
+  renderBoard();              
+  checkWinner();              
+}              
+
+</script>              
+</body>              
 </html>
