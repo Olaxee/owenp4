@@ -321,27 +321,50 @@ const controls = document.getElementById('controls');
 const codeField = document.getElementById('codeField');              
 const applyCodeBtn = document.getElementById('applyCode');              
 
-// ---------- AUTH ----------              
-async function login() {              
+// ---------- AUTH ----------
+async function login() {
   const { data, error } = await supabase
-    .from('Test')
+    .from('profiles')
     .select('*')
     .eq('username', usernameInput.value)
-    .eq('password', passwordInput.value)              
-    .single();              
-  if(error){ loginStatus.textContent = 'Erreur: '+error.message; return;}              
-  player=data;              
-  loginStatus.textContent='Connecté';              
-  setupGameUI();              
-}              
+    .eq('password', passwordInput.value)
+    .single();
 
-async function createAccount(){              
+  if (error) {
+    loginStatus.textContent = 'Erreur: ' + error.message;
+    return;
+  }
+  player = data;
+  loginStatus.textContent = 'Connecté';
+  setupGameUI();
+}
+
+async function createAccount() {
+  // Vérifier si username existe déjà
+  const { data: existing } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('username', usernameInput.value)
+    .single();
+
+  if (existing) {
+    loginStatus.textContent = 'Pseudo déjà utilisé';
+    return;
+  }
+
   const { data, error } = await supabase
-    .from('Test')
-    .insert([{ username: usernameInput.value, password: passwordInput.value, elo:1000 }]);              
-  if(error){ loginStatus.textContent='Erreur: '+error.message; return;}              
-  loginStatus.textContent='Compte créé! Connectez-vous';              
-}              
+    .from('profiles')
+    .insert([{ username: usernameInput.value, password: passwordInput.value, elo: 1000 }])
+    .select()
+    .single();
+
+  if (error) {
+    loginStatus.textContent = 'Erreur: ' + error.message;
+    return;
+  }
+
+  loginStatus.textContent = 'Compte créé! Connectez-vous';
+}
 
 loginBtn.onclick = login;              
 createBtn.onclick = createAccount;              
