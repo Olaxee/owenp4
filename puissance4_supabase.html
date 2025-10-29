@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Puissance 4 P2P - Supabase</title>
+<style>
+/* (Same CSS as original, slightly trimmed for brevity) */
+:root{
+  --bg:#071128; --card:#0e2436; --muted:#9fb7c7; --text:#e8f3fb;
+  --accent:#2ea44f; --accent-strong:#26a14a; --ghost:#133147;
+}
+*{box-sizing:border-box}
+html,body{height:100%;}
+body { margin:0; padding:0.9rem; font-family: -apple-system, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: linear-gradient(180deg,var(--bg) 0%, #052033 100%); color:var(--text); display:flex; flex-direction:column; align-items:center; gap:0.8rem; min-height:100vh; }
+h1{ margin:0.6rem 0 0; font-size:1.15rem; font-weight:700; text-align:center; width:100%; max-width:420px; padding:8px 0; }
+#loginContainer, #controls, #rematchContainer, #clocks, #playerInfo { width:100%; max-width:420px; display:flex; flex-direction:column; gap:0.45rem; align-items:stretch; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02)); padding:0.7rem; border-radius:12px; border: 1px solid rgba(255,255,255,0.04); box-shadow: 0 6px 18px rgba(2,6,12,0.55); }
+input[type="text"], input[type="password"], textarea { width:100%; min-height:44px; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.06); background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03)); color:var(--text); font-size:0.95rem; outline:none; }
+button { display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:10px 14px; border-radius:12px; border:none; background: var(--ghost); color: var(--text); font-weight:700; cursor:pointer; }
+#loginContainer button#createAccountBtn, #loginContainer button#loginBtn, #controls button#createOffer, #controls button#createAnswer, #controls button#applyCode, #rematchContainer button#rematchBtn { background: linear-gradient(180deg, var(--accent), var(--accent-strong)); color:#fff; }
+#board{ width:100%; max-width:420px; aspect-ratio:7/6; display:grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(6, 1fr); gap:8px; padding:14px; border-radius:16px; background: linear-gradient(180deg, #0b3a57, #082a3d); }
+.cell { width:100%; height:100%; aspect-ratio:1/1; border-radius:50%; display:flex; align-items:center; justify-content:center; background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.03), transparent 20%), linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03)); cursor:pointer; position:relative; overflow:hidden; border:1px solid rgba(255,255,255,0.02); }
+.disc{ width:86%; height:86%; border-radius:50%; background:#111; box-shadow:0 6px 14px rgba(0,0,0,0.45); transition:transform .28s cubic-bezier(.2,.9,.3,1); }
+.disc.red{ background: linear-gradient(180deg, #ff5b5b, #c43b3b); }
+.disc.yellow{ background: linear-gradient(180deg, #ffd35b, #d6a42c); }
+</style>
+</head>
+<body>
+<h1>Puissance 4 P2P (Supabase)</h1>
+
+<div id="loginContainer">
+  <input type="text" id="usernameInput" placeholder="Pseudo (sera utilisé comme email local)">
+  <input type="password" id="passwordInput" placeholder="Mot de passe">
+  <div style="display:flex;gap:8px;">
+    <button id="createAccountBtn">Créer un compte</button>
+    <button id="loginBtn">Se connecter</button>
+  </div>
+  <div id="loginStatus"></div>
+  <div style="font-size:0.85rem; color:var(--muted); margin-top:6px;">
+    Remarque : on utilise `pseudo@local.puissance4` comme email technique (pas besoin d'email réel).
+  </div>
+</div>
+
+<div id="playerInfo" style="display:none;">
+  <div id="myEloContainer">Elo : <span id="myElo"></span></div>
+  <div id="opponentContainer" style="display:none;">Adversaire : <span id="opName">—</span> (<span id="opElo">—</span>)</div>
+</div>
+
+<div id="controls" style="display:none;">
+  <button id="createOffer">Créer Offre</button>
+  <button id="createAnswer" disabled>Créer Réponse</button>
+  <textarea id="codeField" placeholder="Colle ou copie le code ici"></textarea><br>
+  <div style="display:flex;gap:8px;">
+    <button id="applyCode">Appliquer Code</button>
+    <button id="copyCode">Copier Code</button>
+  </div>
+  <div id="status">Statut : Déconnecté</div>
+</div>
+
+<div id="clocks" style="display:none;">
+  <div id="myClockContainer"><span id="myPseudo"></span> (<span id="myEloClock"></span>) : <span id="myClock">05:00</span></div>
+  <div id="opClockContainer"><span id="opPseudo"></span> (<span id="opEloClock"></span>) : <span id="opClock">05:00</span></div>
+</div>
+
+<div id="board"></div>
+
+<div id="rematchContainer" style="display:none;">
+  <button id="rematchBtn">Revanche</button>
+  <button id="declineBtn">✖</button>
+  <span id="rematchStatus"></span>
+</div>
+
+<!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+
+<script>
+// ---------------- CONFIG SUPABASE ----------------
+const SUPA_URL = 'https://nowqsciorntrzvbaiuyv.supabase.co';
+const SUPA_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vd3FzY2lvcm50cnp2YmFpdXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NTAwMzIsImV4cCI6MjA3NzMyNjAzMn0.Fze-O9qq5llDxbF4mRKV-JgaLvU3Z8N-O7VfUTNFrQQ';
+const supabase = supabase.createClient(SUPA_URL, SUPA_ANON);
+
+// ---------------- UTILITAIRES ----------------
+const el=id=>document.getElementById(id);
+const setStatus=t=>el('status').textContent="Statut : "+t;
+let board=Array(6).fill().map(()=>Array(7).fill(null));
+let turn=null, myColor=null, opponentColor=null, gameOver=false;
+let pc=null, dc=null, isInitiator=false;
+let myTime=300, opTime=300, myInterval=null, opInterval=null;
+let currentUser=null, currentProfile=null;
+
+// ---------------- UI: board ----------------
+function createBoard(){
+  const boardDiv=el('board'); boardDiv.innerHTML="";
+  for(let r=0;r<6;r++){
+    for(let c=0;c<7;c++){
+      const cell=document.createElement('div');
+      cell.className='cell'; cell.dataset.col=c;
+      const disc=document.createElement('div'); disc.className='disc';
+      cell.appendChild(disc);
+      cell.onclick=()=>handleColumnClick(c);
+      boardDiv.appendChild(cell);
+    }
+  }
+}
+createBoard();
+
+function updateBoard(){
+  const discs=document.querySelectorAll('.disc');
+  for(let r=0;r<6;r++){
+    for(let c=0;c<7;c++){
+      const color=board[r][c];
+      const idx=r*7+c;
+      discs[idx].className='disc'+(color?(' '+color):'');
+      if(!color) discs[idx].style.background='';
+    }
+  }
+}
+function clearBoard(){ board=Array(6).fill().map(()=>Array(7).fill(null)); updateBoard(); }
+
+// ---------------- Supabase user functions ----------------
+function synthEmailFromUsername(username){
+  // create a deterministic fake email so we can use Supabase Auth without real email
+  const safe = username.replace(/[^a-zA-Z0-9_.-]/g,'_').toLowerCase();
+  return safe + '@local.puissance4';
+}
+
+async function register(username, password){
+  el('loginStatus').textContent = 'Création en cours...';
+  const email = synthEmailFromUsername(username);
+  // create auth user
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if(error){
+    el('loginStatus').textContent = 'Erreur création: ' + (error.message || JSON.stringify(error));
+    return null;
+  }
+  // ensure profile inserted with the auth user id (data.user.id)
+  const userId = data.user.id;
+  const { error: err2 } = await supabase.from('profiles').insert({ id: userId, username, elo: 1000 });
+  if(err2){
+    el('loginStatus').textContent = 'Erreur création profil: ' + (err2.message || JSON.stringify(err2));
+    return null;
+  }
+  el('loginStatus').textContent = 'Compte créé. Tu peux te connecter.';
+  return true;
+}
+
+async function login(username, password){
+  el('loginStatus').textContent = 'Connexion...';
+  const email = synthEmailFromUsername(username);
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if(error){ el('loginStatus').textContent = 'Erreur connexion: '+(error.message||JSON.stringify(error)); return null; }
+  // get profile
+  const userId = data.user.id;
+  const { data: profile, error: err2 } = await supabase.from('profiles').select('*').eq('id', userId).single();
+  if(err2){ el('loginStatus').textContent = 'Erreur lecture profil: '+(err2.message||JSON.stringify(err2)); return null; }
+  currentUser = data.user;
+  currentProfile = profile;
+  afterLogin();
+  return { user: currentUser, profile: currentProfile };
+}
+
+async function updateElo(userId, newElo){
+  const { error } = await supabase.from('profiles').update({ elo: newElo }).eq('id', userId);
+  if(error) console.error('updateElo error', error);
+  else currentProfile.elo = newElo;
+  el('myElo').textContent = currentProfile.elo;
+  el('myEloClock').textContent = currentProfile.elo;
+  // broadcast via data channel if connected
+  if(dc?.readyState==='open') dc.send(JSON.stringify({playerInfo:{username:currentProfile.username, elo:currentProfile.elo}}));
+}
+
+// optional: migrate localStorage users (if any) to Supabase profiles (no auth creation)
+async function migrateLocalToSupabase(){
+  const local = JSON.parse(localStorage.getItem('users')||'{}');
+  for(const username of Object.keys(local)){
+    const u = local[username];
+    try{
+      // create auth user with synthetic email and stored password if present (best-effort)
+      const email = synthEmailFromUsername(username);
+      if(u.password){
+        await supabase.auth.signUp({ email, password: u.password }).catch(()=>{});
+      }
+      await supabase.from('profiles').insert({ username, elo: u.elo || 1000 }).catch(()=>{});
+    }catch(e){ console.warn('migrate error', e); }
+  }
+  alert('Migration tentée (vérifie dans Supabase Dashboard).');
+}
+
+// ---------------- UI after login ----------------
+function afterLogin(){
+  el('loginContainer').style.display='none';
+  el('controls').style.display='flex';
+  el('playerInfo').style.display='flex';
+  el('myElo').textContent = currentProfile.elo;
+  el('myPseudo').textContent = currentProfile.username;
+  el('myEloClock').textContent = currentProfile.elo;
+  setStatus('Connecté localement — prêt');
+}
+
+// ---------------- Event listeners for auth buttons ----------------
+el('createAccountBtn').onclick = async ()=>{
+  const username = el('usernameInput').value.trim();
+  const password = el('passwordInput').value.trim();
+  if(!username || !password){ el('loginStatus').textContent='Pseudo et mdp requis'; return; }
+  await register(username, password);
+};
+el('loginBtn').onclick = async ()=>{
+  const username = el('usernameInput').value.trim();
+  const password = el('passwordInput').value.trim();
+  if(!username || !password){ el('loginStatus').textContent='Pseudo et mdp requis'; return; }
+  await login(username, password);
+};
+
+// ---------------- P2P code (mostly unchanged) ----------------
+function makePeer(){
+  pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});
+  pc.onconnectionstatechange=()=>{ if(pc.connectionState==='connected'){ setStatus("Connecté !"); el('clocks').style.display='flex'; sendPlayerInfo(); } };
+  pc.ondatachannel=e=>{ dc=e.channel; setupDC(); };
+  return pc;
+}
+
+function setupDC(){
+  dc.onopen=()=>{ setStatus("Canal ouvert — prêt à jouer !");
+    if(!myColor){ myColor=isInitiator?'red':'yellow'; opponentColor=myColor==='red'?'yellow':'red'; turn=null; }
+    sendPlayerInfo();
+  };
+  dc.onmessage=e=>{
+    const msg=JSON.parse(e.data);
+    if(msg.col!==undefined){ if(turn===null) turn=opponentColor; dropDisc(msg.col,opponentColor); switchTurn(); }
+    if(msg.rematch===true){ opponentRematch=true; checkRematchStart(); }
+    if(msg.rematch===false){ disconnectRematch(); }
+    if(msg.endGame) endGame(msg.endGame);
+    if(msg.playerInfo){
+      el('opName').textContent=msg.playerInfo.username;
+      el('opElo').textContent=msg.playerInfo.elo;
+      el('opPseudo').textContent = msg.playerInfo.username;
+      el('opEloClock').textContent = msg.playerInfo.elo;
+      el('opponentContainer').style.display='block';
+    }
+  };
+}
+
+function sendPlayerInfo(){ if(dc?.readyState==='open' && currentProfile){ dc.send(JSON.stringify({playerInfo:{username:currentProfile.username, elo:currentProfile.elo}})); } }
+function sendMove(col){ if(dc?.readyState==='open') dc.send(JSON.stringify({col})); }
+function sendRematch(accept){ if(dc?.readyState==='open') dc.send(JSON.stringify({rematch:accept})); }
+function sendEndGame(){ if(dc?.readyState==='open') dc.send(JSON.stringify({endGame:myColor+" gagne !"})); }
+
+// ---------------- Board interactions ----------------
+function handleColumnClick(col){
+  if(gameOver) return;
+  if(turn===null){ turn=myColor; opponentColor=(myColor==='red'?'yellow':'red'); setStatus("Tour de "+turn); startClock(turn); }
+  if(turn!==myColor) return;
+  if(dropDisc(col,myColor)){ sendMove(col); switchTurn(); }
+}
+
+function dropDisc(col,color){
+  if(gameOver) return false;
+  for(let r=5;r>=0;r--){
+    if(!board[r][col]){
+      board[r][col]=color; updateBoard();
+      if(checkWin(r,col,color)){ endGame(color+" gagne !", color); }
+      return true;
+    }
+  }
+  return false;
+}
+
+function checkWin(row,col,color){
+  const dirs=[[1,0],[0,1],[1,1],[1,-1]];
+  function countDir(dr,dc){ let r=row+dr,c=col+dc,count=0;
+    while(r>=0&&r<6&&c>=0&&c<7&&board[r][c]===color){ count++; r+=dr; c+=dc; }
+    return count;
+  }
+  for(const [dr,dc] of dirs){ if(1+countDir(dr,dc)+countDir(-dr,-dc)>=4) return true; }
+  return false;
+}
+
+// ---------------- GAME END + ELO ----------------
+function endGame(message, winnerColor=null){
+  gameOver=true; stopAllIntervals(); // don't clear board immediately - keep for review
+  myTime=300; opTime=300; updateClocks();
+  el('rematchContainer').style.display='flex';
+  setStatus(message);
+
+  if(winnerColor && currentProfile){
+    let myElo=currentProfile.elo;
+    let opElo=parseInt(el('opElo').textContent)||1000;
+    let S=(winnerColor===myColor)?1:0;
+    let E=1/(1+Math.pow(10,(opElo-myElo)/400));
+    let delta=Math.round(16*(S-E));
+    const newElo = myElo + delta;
+    updateElo(currentProfile.id, newElo);
+    if(dc?.readyState==='open') dc.send(JSON.stringify({playerInfo:{username:currentProfile.username, elo:currentProfile.elo}}));
+  }
+}
+
+// ---------------- SWITCH TURN + CLOCK ----------------
+function switchTurn(){
+  if(turn===myColor){ stopClock(myInterval); turn=opponentColor; startClock(turn); setStatus("Tour de l'autre joueur"); }
+  else { stopClock(opInterval); turn=myColor; startClock(turn); setStatus("À ton tour !"); }
+}
+
+function startClock(player){
+  if(gameOver) return;
+  if(player===myColor){
+    myInterval=setInterval(()=>{ myTime--; updateClocks(); if(myTime<=0){ endGame("Temps écoulé !", opponentColor); sendEndGame(); } },1000);
+  } else {
+    opInterval=setInterval(()=>{ opTime--; updateClocks(); if(opTime<=0){ endGame("Temps écoulé !", myColor); } },1000);
+  }
+}
+function stopClock(interval){ if(interval) clearInterval(interval); }
+function stopAllIntervals(){ stopClock(myInterval); stopClock(opInterval); }
+function updateClocks(){ 
+  el('myClock').textContent = formatTime(myTime); 
+  el('opClock').textContent = formatTime(opTime); 
+  el('myPseudo').textContent = currentProfile ? currentProfile.username : '';
+  el('myEloClock').textContent = currentProfile ? currentProfile.elo : '';
+  if(el('opPseudo').textContent !== "—"){
+    el('opEloClock').textContent = el('opElo').textContent;
+  }
+}
+function formatTime(sec){ return `${Math.floor(sec/60).toString().padStart(2,'0')}:${(sec%60).toString().padStart(2,'0')}`; }
+
+// ---------------- REMATCH ----------------
+let rematchAccepted=false, opponentRematch=false, rematchTimer=null;
+function checkRematchStart(){
+  if(rematchAccepted && opponentRematch){
+    clearTimeout(rematchTimer);
+    rematchAccepted=false; opponentRematch=false;
+    myTime=300; opTime=300; clearBoard();
+    turn=null; gameOver=false; el('rematchContainer').style.display='none';
+    setStatus("Nouvelle partie — premier à jouer commence");
+    el('clocks').style.display='flex';
+  } else el('rematchStatus').textContent="En attente de l'autre joueur...";
+}
+function disconnectRematch(){
+  stopAllIntervals(); rematchAccepted=false; opponentRematch=false;
+  el('rematchContainer').style.display='none';
+  pc?.close(); pc=null; dc=null;
+  setStatus("Communication coupée, plateau prêt pour nouvelle connexion");
+}
+
+// ---------------- P2P buttons ----------------
+async function waitIce(pc){ if(pc.iceGatheringState==='complete') return; return new Promise(res=>{ pc.onicegatheringstatechange=()=>{ if(pc.iceGatheringState==='complete') res(); }; }); }
+el('createOffer').onclick=async()=>{
+  isInitiator=true; makePeer(); dc=pc.createDataChannel('game'); setupDC();
+  const offer=await pc.createOffer(); await pc.setLocalDescription(offer); await waitIce(pc);
+  el('codeField').value=btoa(JSON.stringify(pc.localDescription));
+  setStatus("Offre créée — envoie le code !");
+};
+el('applyCode').onclick=async()=>{
+  const code=el('codeField').value.trim(); const sdpStr=atob(code);
+  if(!sdpStr){ alert("Code invalide"); return; }
+  const desc=JSON.parse(sdpStr); if(!pc) makePeer(); await pc.setRemoteDescription(desc);
+  if(!isInitiator){ el('createAnswer').disabled=false; setStatus("Offre reçue — crée la réponse"); } else setStatus("Réponse appliquée !");
+};
+el('createAnswer').onclick=async()=>{
+  const answer=await pc.createAnswer(); await pc.setLocalDescription(answer); await waitIce(pc);
+  el('codeField').value=btoa(JSON.stringify(pc.localDescription));
+  setStatus("Réponse prête — envoie le code !");
+};
+el('copyCode').onclick=()=>{ navigator.clipboard.writeText(el('codeField').value); alert("Code copié !"); };
+
+// rematch
+el('rematchBtn').onclick=()=>{ rematchAccepted=true; sendRematch(true); checkRematchStart(); };
+el('declineBtn').onclick=()=>{ sendRematch(false); disconnectRematch(); };
+
+// ---------------- on load: check session ----------------
+(async function init(){
+  // If user already has a session, load profile
+  const { data: { session } } = await supabase.auth.getSession();
+  if(session?.user){
+    const id = session.user.id;
+    const { data: profile } = await supabase.from('profiles').select('*').eq('id', id).single().catch(()=>null);
+    if(profile){ currentUser = session.user; currentProfile = profile; afterLogin(); }
+  }
+})();
+</script>
+</body>
+</html>
