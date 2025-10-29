@@ -2,98 +2,45 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Puissance 4 P2P - Supabase</title>
+<title>Puissance 4 Matchmaking</title>
 <style>
 :root{
   --bg:#071128; --card:#0e2436; --muted:#9fb7c7; --text:#e8f3fb;
-  --accent:#2ea44f; --accent-strong:#26a14a; --ghost:#133147;
-  --danger:#e06a4a; --glass: rgba(255,255,255,0.04);
+  --accent:#2ea44f; --accent-strong:#26a14a; --ghost:#133147; --danger:#e06a4a;
   --board-hole:#0b3a57; --hole-edge:#163a54; --disc-shadow: rgba(0,0,0,0.45);
 }
-*{box-sizing:border-box} html,body{height:100%;}
-body{margin:0; padding:0.9rem; font-family:-apple-system,"Inter","Segoe UI",Roboto,sans-serif;
-  background:linear-gradient(180deg,var(--bg) 0%,#052033 100%); color:var(--text);
-  display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
-  gap:0.8rem; min-height:100vh;}
-h1{margin:0.6rem 0 0; font-size:1.15rem; font-weight:700; color:var(--text);
-  letter-spacing:0.2px; text-align:center; width:100%; max-width:420px;
-  text-shadow:0 1px 0 rgba(0,0,0,0.45); padding:8px 0;}
-#loginContainer,#controls,#rematchContainer,#clocks,#playerInfo{
-  width:100%; max-width:420px; display:flex; flex-direction:column; gap:0.45rem;
-  align-items:stretch; background: linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.02));
-  padding:0.7rem; border-radius:12px; border:1px solid rgba(255,255,255,0.04);
-  box-shadow:0 6px 18px rgba(2,6,12,0.55), inset 0 1px 0 rgba(255,255,255,0.02);}
-#loginContainer{ padding-top:0.5rem }
-input[type="text"], input[type="password"], textarea{
-  width:100%; min-height:44px; padding:10px 12px; border-radius:10px;
-  border:1px solid rgba(255,255,255,0.06);
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03));
-  color:var(--text); font-size:0.95rem; outline:none;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.02); resize:vertical;
-  transition: box-shadow .12s ease, border-color .12s ease, transform .06s ease;}
-input::placeholder, textarea::placeholder{color: rgba(255,255,255,0.35); font-weight:500;}
-input:focus, textarea:focus{border-color: rgba(46,164,79,0.9);
-  box-shadow:0 6px 18px rgba(46,164,79,0.06), inset 0 1px 0 rgba(255,255,255,0.02);
-  transform:translateY(-1px);}
-textarea#codeField{min-height:92px;font-family:ui-monospace,Menlo,Monaco,"Roboto Mono",monospace;font-size:0.88rem;}
-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;
-  padding:10px 14px;border-radius:12px;border:none;background:var(--ghost);color:var(--text);
-  font-weight:700;font-size:0.95rem;cursor:pointer;transition: transform .08s ease, box-shadow .12s ease, background .12s ease;
-  box-shadow:0 6px 14px rgba(2,6,12,0.5);}
-#loginContainer button#loginBtn,#loginContainer button#createAccountBtn,
-#controls button#createOffer,#controls button#createAnswer,#controls button#applyCode,
-#rematchContainer button#rematchBtn{background: linear-gradient(180deg, var(--accent), var(--accent-strong));
-  color:#fff; box-shadow:0 8px 22px rgba(38,161,74,0.18);}
-button#copyCode, button#declineBtn{background:transparent; border:1px solid rgba(255,255,255,0.06);
-  color:var(--muted); box-shadow:none;}
-#declineBtn{min-width:44px;width:44px;padding:0;font-size:1.05rem;border-radius:10px;}
-button:hover{transform: translateY(-2px);} button:active{transform:translateY(0); box-shadow:0 4px 8px rgba(0,0,0,0.5);}
-button:disabled{opacity:0.45; cursor:not-allowed; transform:none; box-shadow:none;}
-#loginContainer > button, #controls > button{width:100%;}
-#status,#loginStatus,#rematchStatus{color:var(--muted); font-weight:600;font-size:0.9rem;
-  padding:6px 8px; border-radius:8px;
-  background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));
-  border:1px solid rgba(255,255,255,0.02);}
-#playerInfo{display:flex; gap:12px; align-items:center; justify-content:space-between; padding:8px;
-  background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));}
-#playerInfo>div{display:flex; flex-direction:column; gap:4px; font-size:0.95rem; color:var(--text);}
-#playerInfo span{font-weight:800; color:#fff; font-size:0.95rem;}
-#clocks{display:flex; gap:12px; align-items:center; justify-content:space-between;
-  padding:8px 10px; border-radius:10px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03));
-  border:1px solid rgba(255,255,255,0.03); font-weight:800; font-size:0.95rem;}
-#board{width:100%; max-width:420px; aspect-ratio:7/6; display:grid; grid-template-columns:repeat(7,1fr);
-  grid-template-rows:repeat(6,1fr); gap:8px; padding:14px; border-radius:16px;
-  background:linear-gradient(180deg,var(--board-hole),#082a3d);
-  box-shadow:0 18px 40px rgba(1,8,15,0.7), inset 0 2px 10px rgba(255,255,255,0.02);
-  transform:none; -webkit-tap-highlight-color:transparent; touch-action:manipulation;}
-@media(max-width:420px){#board{padding:10px; gap:6px; border-radius:12px;}}
-.cell{width:100%; height:100%; aspect-ratio:1/1; border-radius:50%;
-  display:flex; align-items:center; justify-content:center;
-  background:radial-gradient(circle at 30% 25%, rgba(255,255,255,0.03), transparent 20%),
-  linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03));
-  box-shadow: inset 0 -6px 12px rgba(0,0,0,0.6), inset 0 2px 6px rgba(255,255,255,0.02);
-  cursor:pointer; transition:transform .08s ease; position:relative; overflow:hidden; border:1px solid rgba(255,255,255,0.02);}
-.cell:active{transform:translateY(1px) scale(0.997);}
-.disc{width:86%; height:86%; border-radius:50%; background:#111;
-  box-shadow:0 6px 14px var(--disc-shadow), inset 0 2px 8px rgba(255,255,255,0.03);}
-.cell::after{content:""; position:absolute; inset:10% 10%; border-radius:50%;
-  background:radial-gradient(circle at 35% 30%, rgba(255,255,255,0.02), rgba(0,0,0,0.3));
-  z-index:0; pointer-events:none;}
-.disc.red{background:linear-gradient(180deg,#ff5b5b,#c43b3b);
-  box-shadow:0 8px 18px rgba(196,59,59,0.28), inset 0 2px 8px rgba(255,255,255,0.06);}
-.disc.yellow{background:linear-gradient(180deg,#ffd35b,#d6a42c);
-  box-shadow:0 8px 18px rgba(214,164,44,0.22), inset 0 2px 8px rgba(255,255,255,0.06);}
-@keyframes dropIn{from{transform:translateY(-40%) scale(.98);opacity:.85;}to{transform:translateY(0) scale(1);opacity:1;}}
-.disc.dropped{animation:dropIn .26s cubic-bezier(.2,.9,.3,1) both;}
-#rematchContainer{display:flex; gap:8px; align-items:center; justify-content:center;
-  padding:8px; background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02)); border-radius:12px;}
-@media(max-width:360px){body{padding:0.6rem;} h1{font-size:1rem;}
-  #loginContainer,#controls,#board{padding:8px; border-radius:10px;} input,button{min-height:40px;font-size:0.92rem;}}
-input:focus,textarea:focus,button:focus{outline:3px solid rgba(46,164,79,0.18); outline-offset:2px; border-radius:10px;}
+*{box-sizing:border-box}
+html,body{height:100%;}
+body{margin:0;padding:0.9rem;font-family:-apple-system, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+background:linear-gradient(180deg,var(--bg) 0%, #052033 100%); color:var(--text);
+display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:0.8rem;min-height:100vh;}
+h1{margin:0.6rem 0 0;font-size:1.15rem;font-weight:700;color:var(--text);letter-spacing:0.2px;text-align:center;width:100%;max-width:420px;text-shadow:0 1px 0 rgba(0,0,0,0.45);padding:8px 0;}
+#loginContainer, #controls, #rematchContainer, #clocks, #playerInfo{width:100%;max-width:420px;display:flex;flex-direction:column;gap:0.45rem;align-items:stretch;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));padding:0.7rem;border-radius:12px;border:1px solid rgba(255,255,255,0.04);box-shadow:0 6px 18px rgba(2,6,12,0.55), inset 0 1px 0 rgba(255,255,255,0.02);}
+input[type="text"], input[type="password"], textarea{width:100%;min-height:44px;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.06);background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03));color:var(--text);font-size:0.95rem;outline:none;box-shadow:inset 0 1px 0 rgba(255,255,255,0.02);resize: vertical;transition: box-shadow .12s ease, border-color .12s ease, transform .06s ease;}
+input::placeholder{color: rgba(255,255,255,0.35); font-weight:500;}
+input:focus, textarea:focus{border-color: rgba(46,164,79,0.9);box-shadow:0 6px 18px rgba(46,164,79,0.06), inset 0 1px 0 rgba(255,255,255,0.02);transform: translateY(-1px);}
+button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 14px;border-radius:12px;border:none;background:var(--ghost);color:var(--text);font-weight:700;font-size:0.95rem;cursor:pointer;transition: transform .08s ease, box-shadow .12s ease, background .12s ease;box-shadow:0 6px 14px rgba(2,6,12,0.5);}
+#loginContainer button#loginBtn,#loginContainer button#createAccountBtn,#controls button#joinMatch,#rematchContainer button#rematchBtn{background:linear-gradient(180deg, var(--accent), var(--accent-strong)); color:#fff; box-shadow:0 8px 22px rgba(38,161,74,0.18);}
+button:hover{ transform: translateY(-2px); } button:active{ transform: translateY(0); box-shadow:0 4px 8px rgba(0,0,0,0.5); } button:disabled{opacity:0.45;cursor:not-allowed;transform:none;box-shadow:none;}
+#status,#loginStatus,#rematchStatus{color:var(--muted);font-weight:600;font-size:0.9rem;padding:6px 8px;border-radius:8px;background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));border:1px solid rgba(255,255,255,0.02);}
+#playerInfo{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:8px;background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));}
+#playerInfo > div{display:flex;flex-direction:column;gap:4px;font-size:0.95rem;color:var(--text);}
+#playerInfo span{ font-weight:800;color:#fff;font-size:0.95rem;}
+#clocks{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03));border:1px solid rgba(255,255,255,0.03);font-weight:800;font-size:0.95rem;}
+#board{width:100%;max-width:420px;aspect-ratio:7/6;display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(6,1fr);gap:8px;padding:14px;border-radius:16px;background:linear-gradient(180deg,var(--board-hole),#082a3d);box-shadow:0 18px 40px rgba(1,8,15,0.7), inset 0 2px 10px rgba(255,255,255,0.02);touch-action:manipulation;}
+.cell{width:100%;height:100%;aspect-ratio:1/1;border-radius:50%;display:flex;align-items:center;justify-content:center;background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.03), transparent 20%), linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03));box-shadow: inset 0 -6px 12px rgba(0,0,0,0.6), inset 0 2px 6px rgba(255,255,255,0.02);cursor:pointer;transition: transform .08s ease;position:relative;overflow:hidden;border:1px solid rgba(255,255,255,0.02);}
+.cell:active{transform: translateY(1px) scale(.997);}
+.disc{width:86%;height:86%;border-radius:50%;background:#111;box-shadow:0 6px 14px var(--disc-shadow), inset 0 2px 8px rgba(255,255,255,0.03);transition: transform .28s cubic-bezier(.2,.9,.3,1), background .2s ease, box-shadow .12s ease;display:block;z-index:1;}
+.cell::after{content:"";position:absolute;inset:10% 10%;border-radius:50%;background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.02), rgba(0,0,0,0.3));z-index:0;pointer-events:none;}
+.disc.red{background: linear-gradient(180deg,#ff5b5b,#c43b3b);box-shadow:0 8px 18px rgba(196,59,59,0.28), inset 0 2px 8px rgba(255,255,255,0.06);}
+.disc.yellow{background: linear-gradient(180deg,#ffd35b,#d6a42c);box-shadow:0 8px 18px rgba(214,164,44,0.22), inset 0 2px 8px rgba(255,255,255,0.06);}
+@keyframes dropIn{from{transform:translateY(-40%) scale(.98);opacity:0.85;}to{transform:translateY(0) scale(1);opacity:1;}}
+.disc.dropped{animation: dropIn .26s cubic-bezier(.2,.9,.3,1) both;}
+#rematchContainer{display:flex;gap:8px;align-items:center;justify-content:center;padding:8px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));border-radius:12px;}
 </style>
 </head>
 <body>
-<h1>Puissance 4 P2P</h1>
+<h1>Puissance 4 Matchmaking</h1>
 
 <div id="loginContainer">
   <input type="text" id="usernameInput" placeholder="Pseudo">
@@ -109,11 +56,7 @@ input:focus,textarea:focus,button:focus{outline:3px solid rgba(46,164,79,0.18); 
 </div>
 
 <div id="controls" style="display:none;">
-  <button id="createOffer">Créer Offre</button>
-  <button id="createAnswer" disabled>Créer Réponse</button>
-  <textarea id="codeField" placeholder="Colle ou copie le code ici"></textarea><br>
-  <button id="applyCode">Appliquer Code</button>
-  <button id="copyCode">Copier Code</button>
+  <button id="joinMatch">Chercher adversaire</button>
   <div id="status">Statut : Déconnecté</div>
 </div>
 
@@ -129,162 +72,278 @@ input:focus,textarea:focus,button:focus{outline:3px solid rgba(46,164,79,0.18); 
   <button id="declineBtn">✖</button>
   <span id="rematchStatus"></span>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+<script type="module">
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-// ---------- CONFIG SUPABASE ----------
-const supabaseUrl = 'https://nowqsciorntrzvbaiuyv.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vd3FzY2lvcm50cnp2YmFpdXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NTAwMzIsImV4cCI6MjA3NzMyNjAzMn0.Fze-O9qq5llDxbF4mRKV-JgaLvU3Z8N-O7VfUTNFrQQ';
-const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
-let myProfile = null;
-let opponentProfile = null;
+const SUPABASE_URL = 'https://arqyrmvnenrtxqryihnz.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFycXlybXZuZW5ydHhxcnlpaG56Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NTE1NjUsImV4cCI6MjA3NzMyNzU2NX0.fGs08ElwvYY2JOnWmq4sveYEa2Dg7g0BsdmRrkRM4xc';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ---------- GESTION COMPTES ----------
-async function createAccount() {
-  const username = document.getElementById('usernameInput').value.trim();
-  const password = document.getElementById('passwordInput').value.trim();
-  if(!username || !password){
-    document.getElementById('loginStatus').innerText = 'Pseudo et mot de passe requis';
-    return;
-  }
-  
-  // Vérifie si l'utilisateur existe
-  let { data, error } = await supabaseClient
-    .from('profiles')
-    .select('*')
-    .eq('username', username)
-    .single();
-    
-  if(data){
-    document.getElementById('loginStatus').innerText = 'Ce pseudo existe déjà';
-    return;
-  }
+const el = id => document.getElementById(id);
 
-  // Crée le compte
-  const { data: newData, error: insertError } = await supabaseClient
-    .from('profiles')
-    .insert([{ username, password, elo: 1000 }])
-    .select()
-    .single();
+let board = Array(6).fill().map(()=>Array(7).fill(''));
+let turn = null, myColor = null, opponentColor = null, gameOver = false;
+let myTime = 300, opTime = 300, myInterval = null, opInterval = null;
+let currentUser = null;
+let currentMatch = null;
 
-  if(insertError){
-    document.getElementById('loginStatus').innerText = 'Erreur création compte';
-    console.error(insertError);
-    return;
-  }
-
-  myProfile = newData;
-  document.getElementById('loginStatus').innerText = 'Compte créé et connecté !';
-  afterLogin();
-}
-
-async function loginAccount() {
-  const username = document.getElementById('usernameInput').value.trim();
-  const password = document.getElementById('passwordInput').value.trim();
-  if(!username || !password){
-    document.getElementById('loginStatus').innerText = 'Pseudo et mot de passe requis';
-    return;
-  }
-
-  const { data, error } = await supabaseClient
-    .from('profiles')
-    .select('*')
-    .eq('username', username)
-    .eq('password', password)
-    .single();
-
-  if(error || !data){
-    document.getElementById('loginStatus').innerText = 'Pseudo ou mot de passe incorrect';
-    return;
-  }
-
-  myProfile = data;
-  document.getElementById('loginStatus').innerText = 'Connecté !';
-  afterLogin();
-}
-
-// ---------- APRÈS LOGIN ----------
-function afterLogin(){
-  document.getElementById('loginContainer').style.display = 'none';
-  document.getElementById('controls').style.display = 'flex';
-  document.getElementById('playerInfo').style.display = 'flex';
-  document.getElementById('myElo').innerText = myProfile.elo;
-  document.getElementById('myPseudo').innerText = myProfile.username;
-}
-
-// ---------- GESTION P2P (simplifié) ----------
-const board = Array(6).fill(null).map(()=>Array(7).fill(null));
-const boardDiv = document.getElementById('board');
-
-function renderBoard(){
+// ---------------- BOARD ----------------
+function createBoard(){
+  const boardDiv = el('board');
   boardDiv.innerHTML = '';
   for(let r=0;r<6;r++){
     for(let c=0;c<7;c++){
       const cell = document.createElement('div');
-      cell.className = 'cell';
-      cell.dataset.row = r;
-      cell.dataset.col = c;
-      if(board[r][c]){
-        const disc = document.createElement('div');
-        disc.className = 'disc ' + board[r][c] + ' dropped';
-        cell.appendChild(disc);
-      }
-      cell.addEventListener('click',()=>handleMove(c));
+      cell.className='cell';
+      cell.dataset.col=c;
+      const disc = document.createElement('div');
+      disc.className='disc';
+      cell.appendChild(disc);
+      cell.onclick = () => handleColumnClick(c);
       boardDiv.appendChild(cell);
     }
   }
 }
+createBoard();
 
-let currentTurn = 'red';
-function handleMove(col){
-  for(let r=5;r>=0;r--){
-    if(!board[r][col]){
-      board[r][col] = currentTurn;
-      currentTurn = currentTurn==='red'?'yellow':'red';
-      renderBoard();
-      checkWin();
-      break;
-    }
-  }
-}
-
-function checkWin(){
-  // Simple check horizontal, vertical, diagonal
-  const directions = [[0,1],[1,0],[1,1],[1,-1]];
+function updateBoard(){
+  const discs = document.querySelectorAll('.disc');
   for(let r=0;r<6;r++){
     for(let c=0;c<7;c++){
-      if(!board[r][c]) continue;
-      const color = board[r][c];
-      for(const [dr,dc] of directions){
-        let count=0;
-        for(let k=0;k<4;k++){
-          const nr=r+dr*k;
-          const nc=c+dc*k;
-          if(nr>=0 && nr<6 && nc>=0 && nc<7 && board[nr][nc]===color) count++;
-        }
-        if(count===4){
-          alert(color.toUpperCase()+' a gagné !');
-          resetBoard();
-          return;
-        }
-      }
+      discs[r*7+c].style.background = board[r][c] || '#111';
     }
   }
 }
 
-function resetBoard(){
-  for(let r=0;r<6;r++) for(let c=0;c<7;c++) board[r][c]=null;
-  currentTurn='red';
-  renderBoard();
+function clearBoard(){
+  board = Array(6).fill().map(()=>Array(7).fill(''));
+  updateBoard();
 }
 
-// ---------- BOUTONS ----------
-document.getElementById('createAccountBtn').addEventListener('click',createAccount);
-document.getElementById('loginBtn').addEventListener('click',loginAccount);
-document.getElementById('rematchBtn').addEventListener('click',resetBoard);
+function dropDisc(col, color){
+  for(let r=5;r>=0;r--){
+    if(!board[r][col]){
+      board[r][col] = color;
+      updateBoard();
+      if(checkWin(r,col,color)) endGame(`${color} gagne !`, color);
+      return true;
+    }
+  }
+  return false;
+}
 
-renderBoard();
+function checkWin(row, col, color){
+  const dirs=[[1,0],[0,1],[1,1],[1,-1]];
+  function countDir(dr,dc){
+    let r=row+dr, c=col+dc, count=0;
+    while(r>=0 && r<6 && c>=0 && c<7 && board[r][c]===color){
+      count++; r+=dr; c+=dc;
+    }
+    return count;
+  }
+  for(const [dr,dc] of dirs){
+    if(1+countDir(dr,dc)+countDir(-dr,-dc) >=4) return true;
+  }
+  return false;
+}
+
+// ---------------- LOGIN / CREATE ----------------
+el('createAccountBtn').onclick = async () => {
+  const username = el('usernameInput').value.trim();
+  const password = el('passwordInput').value.trim();
+  if(!username || !password){ el('loginStatus').textContent="Pseudo et mdp requis"; return; }
+
+  const { data, error } = await supabase.from('profiles').insert([{ username, password, elo: '1000' }]);
+  if(error){ el('loginStatus').textContent="Erreur création compte: "+error.message; return; }
+  el('loginStatus').textContent="Compte créé, connecte-toi";
+};
+
+el('loginBtn').onclick = async () => {
+  const username = el('usernameInput').value.trim();
+  const password = el('passwordInput').value.trim();
+  if(!username || !password){ el('loginStatus').textContent="Pseudo et mdp requis"; return; }
+
+  const { data, error } = await supabase.from('profiles').select('*').eq('username', username).eq('password', password).single();
+  if(error || !data){ el('loginStatus').textContent="Pseudo ou mdp incorrect"; return; }
+
+  currentUser = { username: data.username, elo: parseInt(data.elo) };
+  el('myElo').textContent = currentUser.elo;
+  el('loginContainer').style.display='none';
+  el('controls').style.display='flex';
+  el('playerInfo').style.display='flex';
+  el('myPseudo').textContent = currentUser.username;
+  el('myEloClock').textContent = currentUser.elo;
+};
+
+// ---------------- MATCHMAKING AUTOMATIQUE ----------------
+el('joinMatch').onclick = async () => {
+  setStatus("Recherche d'adversaire...");
+
+  try {
+    // Chercher un match waiting
+    const { data: waiting, error: selError } = await supabase.from('matches')
+      .select('*')
+      .eq('status','waiting')
+      .not('player1','eq',currentUser.username)
+      .limit(1)
+      .maybeSingle();
+    if(selError) console.log("Erreur select match:", selError);
+
+    if(!waiting){
+      // Créer match
+      const { data, error } = await supabase.from('matches').insert([{
+        player1: currentUser.username,
+        player2: '',
+        status: 'waiting',
+        p1_elo: currentUser.elo,
+        p2_elo: 0,
+        boardstate: JSON.stringify(board),
+        turn: 'red'
+      }]).select();
+      if(error){ console.log("Erreur insert match:", error); return; }
+      currentMatch = data[0];
+
+      // Écouter adversaire qui rejoint
+      supabase.channel(`public:matches:id=eq.${currentMatch.id}`)
+        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'matches', filter:`id=eq.${currentMatch.id}` }, payload=>{
+          if(payload.new.player2 && payload.new.player2 !== currentUser.username){
+            currentMatch = payload.new;
+            opponentJoined();
+          }
+        }).subscribe();
+
+    } else {
+      // Rejoindre match existant
+      const { data, error } = await supabase.from('matches').update({
+        player2: currentUser.username,
+        p2_elo: currentUser.elo,
+        status: 'playing'
+      }).eq('id', waiting.id).select();
+      if(error){ console.log("Erreur update match:", error); return; }
+      currentMatch = data[0];
+      opponentJoined();
+    }
+  } catch(e){ console.log("Erreur matchmaking:", e); }
+};
+
+// ---------------- OPPONENT JOINED ----------------
+function opponentJoined(){
+  myColor = (currentMatch.player1 === currentUser.username) ? 'red' : 'yellow';
+  opponentColor = (myColor==='red') ? 'yellow' : 'red';
+  turn = 'red';
+
+  const opponentName = (myColor==='red') ? currentMatch.player2 : currentMatch.player1;
+  const opponentElo = (myColor==='red') ? currentMatch.p2_elo : currentMatch.p1_elo;
+
+  el('opName').textContent = opponentName;
+  el('opElo').textContent = opponentElo;
+  el('opponentContainer').style.display = 'flex';
+  el('clocks').style.display = 'flex';
+  setStatus(turn===myColor ? "À ton tour !" : "Tour de l'autre joueur");
+
+  // Charger boardState
+  if(currentMatch.boardstate){
+    try{ board = JSON.parse(currentMatch.boardstate); updateBoard(); }
+    catch(e){ console.log("Erreur parse boardstate:", e); }
+  }
+
+  // Écouter moves en temps réel
+  supabase.channel(`public:matches:id=eq.${currentMatch.id}`)
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'matches', filter:`id=eq.${currentMatch.id}` }, payload=>{
+      const move = payload.new.last_move;
+      const movePlayer = payload.new.last_player;
+      if(movePlayer && movePlayer !== currentUser.username){
+        dropDisc(move, opponentColor);
+        switchTurn();
+      }
+    }).subscribe();
+}
+
+// ---------------- SEND MOVE ----------------
+async function sendMove(col){
+  if(!currentMatch) return;
+  const { data, error } = await supabase.from('matches').update({
+    last_move: col,
+    last_player: currentUser.username,
+    boardstate: JSON.stringify(board)
+  }).eq('id', currentMatch.id).select();
+  if(error) console.log("Erreur sendMove:", error);
+}
+
+// ---------------- SWITCH TURN & CLOCK ----------------
+function switchTurn(){
+  if(turn===myColor){ stopClock(myInterval); turn=opponentColor; startClock(turn); setStatus("Tour de l'autre joueur"); }
+  else { stopClock(opInterval); turn=myColor; startClock(turn); setStatus("À ton tour !"); }
+}
+
+function startClock(player){
+  if(gameOver) return;
+  if(player===myColor){
+    myInterval = setInterval(()=>{ myTime--; updateClocks(); if(myTime<=0){ endGame("Temps écoulé !", opponentColor); } },1000);
+  } else {
+    opInterval = setInterval(()=>{ opTime--; updateClocks(); if(opTime<=0){ endGame("Temps écoulé !", myColor); } },1000);
+  }
+}
+
+function stopClock(interval){ if(interval) clearInterval(interval); }
+function stopAllIntervals(){ stopClock(myInterval); stopClock(opInterval); }
+
+function updateClocks(){
+  el('myClock').textContent = formatTime(myTime);
+  el('opClock').textContent = formatTime(opTime);
+  el('myPseudo').textContent = currentUser.username;
+  el('myEloClock').textContent = currentUser.elo;
+  if(el('opPseudo').textContent!=="—"){ el('opEloClock').textContent = el('opElo').textContent; }
+}
+
+function formatTime(sec){ return `${Math.floor(sec/60).toString().padStart(2,'0')}:${(sec%60).toString().padStart(2,'0')}`; }
+
+// ---------------- END GAME ----------------
+async function endGame(message, winnerColor=null){
+  gameOver = true;
+  stopAllIntervals();
+  clearBoard();
+  myTime = 300; opTime = 300; updateClocks();
+  el('rematchContainer').style.display = 'flex';
+  setStatus(message);
+
+  if(!currentMatch) return;
+
+  let S = (winnerColor===myColor)?1:0;
+  let E = 1/(1+Math.pow(10,(currentMatch.opElo-currentUser.elo)/400));
+  let delta = Math.round(16*(S-E));
+  currentUser.elo += delta;
+
+  el('myElo').textContent = currentUser.elo;
+  el('myEloClock').textContent = currentUser.elo;
+
+  // Update Elo DB
+  const { error } = await supabase.from('profiles').update({ elo: currentUser.elo.toString() }).eq('username', currentUser.username);
+  if(error) console.log("Erreur update Elo:", error);
+
+  // Mark match finished
+  await supabase.from('matches').update({ status:'finished' }).eq('id', currentMatch.id);
+}
+
+// ---------------- REMATCH ----------------
+el('rematchBtn').onclick = async () => {
+  if(!currentMatch) return;
+  await supabase.from('matches').update({ rematch:true }).eq('id', currentMatch.id);
+  el('rematchStatus').textContent = "Revanche demandée !";
+};
+
+el('declineBtn').onclick = async () => {
+  if(!currentMatch) return;
+  await supabase.from('matches').update({ rematch:false }).eq('id', currentMatch.id);
+  el('rematchContainer').style.display='none';
+};
+
+// ---------------- INITIALISATION ----------------
+updateBoard();
+updateClocks();
+
 </script>
 </body>
 </html>
