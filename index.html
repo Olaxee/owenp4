@@ -260,16 +260,26 @@ async function sendMove(col){
 
 // ---------------- SWITCH TURN ----------------
 function switchTurn(){
-  if(turn===myColor){ stopClock(myInterval); turn=opponentColor; startClock(turn); setStatus("Tour de l'autre joueur"); }
-  else { stopClock(opInterval); turn=myColor; startClock(turn); setStatus("À ton tour !"); }
+  if(turn===myColor){ turn=opponentColor; startClock(turn); setStatus("Tour de l'autre joueur"); }
+  else { turn=myColor; startClock(turn); setStatus("À ton tour !"); }
 }
 
 function startClock(player){
+  stopAllIntervals(); // ← STOPPE tout avant de démarrer un nouveau
   if(gameOver) return;
+
   if(player===myColor){
-    myInterval = setInterval(()=>{ myTime--; updateClocks(); if(myTime<=0){ endGame("Temps écoulé !", opponentColor); } },1000);
+    myInterval = setInterval(()=>{
+      myTime--;
+      updateClocks();
+      if(myTime<=0){ endGame("Temps écoulé !", opponentColor); }
+    },1000);
   } else {
-    opInterval = setInterval(()=>{ opTime--; updateClocks(); if(opTime<=0){ endGame("Temps écoulé !", myColor); } },1000);
+    opInterval = setInterval(()=>{
+      opTime--;
+      updateClocks();
+      if(opTime<=0){ endGame("Temps écoulé !", myColor); }
+    },1000);
   }
 }
 
