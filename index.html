@@ -4,466 +4,222 @@
 <meta charset="UTF-8">
 <title>Puissance 4 P2P - Supabase</title>
 <style>
-/* ---------- TYPOGRAPHIE GLOBALE ---------- */
 :root{
-  --bg:#071128;           
-  --card:#0e2436;         
-  --muted:#9fb7c7;        
-  --text:#e8f3fb;         
-  --accent:#2ea44f;       
-  --accent-strong:#26a14a;
-  --ghost:#133147;        
-  --danger:#e06a4a;       
-  --glass: rgba(255,255,255,0.04);
-  --board-hole:#0b3a57;   
-  --hole-edge:#163a54;
-  --disc-shadow: rgba(0,0,0,0.45);
+  --bg:#071128; --card:#0e2436; --muted:#9fb7c7; --text:#e8f3fb; --accent:#2ea44f;
+  --accent-strong:#26a14a; --ghost:#133147; --danger:#e06a4a; --glass: rgba(255,255,255,0.04);
+  --board-hole:#0b3a57; --hole-edge:#163a54; --disc-shadow: rgba(0,0,0,0.45);
 }
-
 *{box-sizing:border-box}
 html,body{height:100%;}
-
-body {
-  margin: 0;
-  padding: 0.9rem;
-  font-family: -apple-system, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background: linear-gradient(180deg,var(--bg) 0%, #052033 100%);
-  color:var(--text);
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:flex-start;
-  -webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;
-  gap:0.8rem;
-  min-height:100vh;
+body{
+  margin:0; padding:0.9rem; font-family:-apple-system,"Inter","Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  background:linear-gradient(180deg,var(--bg) 0%,#052033 100%); color:var(--text);
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:0.8rem;
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; min-height:100vh;
 }
-
-/* ---------- TITRE ---------- */
-h1{
-  margin: 0.6rem 0 0;
-  font-size:1.15rem;
-  font-weight:700;
-  color:var(--text);
-  letter-spacing:0.2px;
-  text-align:center;
-  width:100%;
-  max-width:420px;
-  text-shadow: 0 1px 0 rgba(0,0,0,0.45);
-  padding: 8px 0;
-}
-
-/* ---------- CONTENEURS PRINCIPAUX (cartes) ---------- */
+h1{margin:0.6rem 0 0; font-size:1.15rem; font-weight:700; color:var(--text); letter-spacing:0.2px; text-align:center; width:100%; max-width:420px; text-shadow:0 1px 0 rgba(0,0,0,0.45); padding:8px 0;}
 #loginContainer, #controls, #rematchContainer, #clocks, #playerInfo {
-  width:100%;
-  max-width:420px;
-  display:flex;
-  flex-direction:column;
-  gap:0.45rem;
-  align-items:stretch;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
-  padding:0.7rem;
-  border-radius:12px;
-  border: 1px solid rgba(255,255,255,0.04);
-  box-shadow: 0 6px 18px rgba(2,6,12,0.55), inset 0 1px 0 rgba(255,255,255,0.02);
+  width:100%; max-width:420px; display:flex; flex-direction:column; gap:0.45rem; align-items:stretch;
+  background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02)); padding:0.7rem; border-radius:12px;
+  border:1px solid rgba(255,255,255,0.04); box-shadow:0 6px 18px rgba(2,6,12,0.55), inset 0 1px 0 rgba(255,255,255,0.02);
 }
-
-#loginContainer{ padding-top:0.5rem }
-
-/* ---------- INPUTS ---------- */
-input[type="text"], input[type="password"], textarea {
-  width:100%;
-  min-height:44px;
-  padding: 10px 12px;
-  border-radius:10px;
-  border: 1px solid rgba(255,255,255,0.06);
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03));
-  color:var(--text);
-  font-size:0.95rem;
-  outline: none;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
-  resize: vertical;
+#loginContainer{padding-top:0.5rem}
+input[type="text"], input[type="password"], textarea{
+  width:100%; min-height:44px; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.06);
+  background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03)); color:var(--text); font-size:0.95rem;
+  outline:none; box-shadow:inset 0 1px 0 rgba(255,255,255,0.02); resize:vertical;
   transition: box-shadow .12s ease, border-color .12s ease, transform .06s ease;
 }
-
-input::placeholder, textarea::placeholder {
-  color: rgba(255,255,255,0.35);
-  font-weight:500;
+input::placeholder, textarea::placeholder{ color: rgba(255,255,255,0.35); font-weight:500; }
+input:focus, textarea:focus{ border-color: rgba(46,164,79,0.9); box-shadow:0 6px 18px rgba(46,164,79,0.06), inset 0 1px 0 rgba(255,255,255,0.02); transform: translateY(-1px);}
+textarea#codeField{ min-height:92px; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,"Roboto Mono",monospace; font-size:0.88rem;}
+button{
+  display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:44px; padding:10px 14px;
+  border-radius:12px; border:none; background:var(--ghost); color:var(--text); font-weight:700; font-size:0.95rem;
+  cursor:pointer; transition: transform .08s ease, box-shadow .12s ease, background .12s ease; box-shadow:0 6px 14px rgba(2,6,12,0.5);
 }
-
-input:focus, textarea:focus{
-  border-color: rgba(46,164,79,0.9);
-  box-shadow: 0 6px 18px rgba(46,164,79,0.06), inset 0 1px 0 rgba(255,255,255,0.02);
-  transform: translateY(-1px);
+#loginContainer button#loginBtn, #loginContainer button#createAccountBtn,
+#controls button#createOffer, #controls button#createAnswer, #controls button#applyCode,
+#rematchContainer button#rematchBtn{
+  background:linear-gradient(180deg, var(--accent), var(--accent-strong)); color:#fff; box-shadow:0 8px 22px rgba(38,161,74,0.18);
 }
-
-textarea#codeField {
-  min-height:92px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;
-  font-size:0.88rem;
-}
-
-/* ---------- BOUTONS ---------- */
-button {
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:8px;
-  min-height:44px;
-  padding: 10px 14px;
-  border-radius:12px;
-  border: none;
-  background: var(--ghost);
-  color: var(--text);
-  font-weight:700;
-  font-size:0.95rem;
-  cursor:pointer;
-  transition: transform .08s ease, box-shadow .12s ease, background .12s ease;
-  box-shadow: 0 6px 14px rgba(2,6,12,0.5);
-}
-
-#loginContainer button#loginBtn,
-#loginContainer button#createAccountBtn,
-#controls button#createOffer,
-#controls button#createAnswer,
-#controls button#applyCode,
-#rematchContainer button#rematchBtn {
-  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
-  color: #fff;
-  box-shadow: 0 8px 22px rgba(38,161,74,0.18);
-}
-
-button#copyCode, button#declineBtn {
-  background: transparent;
-  border: 1px solid rgba(255,255,255,0.06);
-  color: var(--muted);
-  box-shadow:none;
-}
-
-#declineBtn{
-  min-width:44px;
-  width:44px;
-  padding:0;
-  font-size:1.05rem;
-  border-radius:10px;
-}
-
-button:hover{ transform: translateY(-2px); }
-button:active{ transform: translateY(0); box-shadow: 0 4px 8px rgba(0,0,0,0.5); }
-
-button:disabled{
-  opacity:0.45;
-  cursor:not-allowed;
-  transform:none;
-  box-shadow:none;
-}
-
-#loginContainer > button, #controls > button { width:100%; }
-
-#status, #loginStatus, #rematchStatus {
-  color:var(--muted);
-  font-weight:600;
-  font-size:0.9rem;
-  padding:6px 8px;
-  border-radius:8px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));
-  border:1px solid rgba(255,255,255,0.02);
-}
-
-#playerInfo {
-  display:flex;
-  gap:12px;
-  align-items:center;
-  justify-content:space-between;
-  padding:8px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));
-}
-
-#playerInfo > div{
-  display:flex;
-  flex-direction:column;
-  gap:4px;
-  font-size:0.95rem;
-  color:var(--text);
-}
-
-#playerInfo span{ font-weight:800; color: #fff; font-size:0.95rem; }
-
-#clocks {
-  display:flex;
-  gap:12px;
-  align-items:center;
-  justify-content:space-between;
-  padding:8px 10px;
-  border-radius:10px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03));
-  border:1px solid rgba(255,255,255,0.03);
-  font-weight:800;
-  font-size:0.95rem;
-}
-
-#board{
-  width:100%;
-  max-width:420px;
-  aspect-ratio: 7 / 6;
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: repeat(6, 1fr);
-  gap:8px;
-  padding: 14px;
-  border-radius:16px;
-  background: linear-gradient(180deg, var(--board-hole), #082a3d);
-  box-shadow: 0 18px 40px rgba(1,8,15,0.7), inset 0 2px 10px rgba(255,255,255,0.02);
-  transform: none;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-}
-
-@media (max-width:420px){
-  #board{ padding:10px; gap:6px; border-radius:12px; }
-}
-
-.cell {
-  width:100%;
-  height:100%;
-  aspect-ratio: 1 / 1;
-  border-radius:50%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
+button#copyCode, button#declineBtn{ background:transparent; border:1px solid rgba(255,255,255,0.06); color:var(--muted); box-shadow:none;}
+#declineBtn{ min-width:44px; width:44px; padding:0; font-size:1.05rem; border-radius:10px;}
+button:hover{transform:translateY(-2px);} button:active{transform:translateY(0); box-shadow:0 4px 8px rgba(0,0,0,0.5);}
+button:disabled{ opacity:0.45; cursor:not-allowed; transform:none; box-shadow:none;}
+#loginContainer>button, #controls>button{width:100%;}
+#status, #loginStatus, #rematchStatus{ color:var(--muted); font-weight:600; font-size:0.9rem; padding:6px 8px; border-radius:8px;
+  background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02)); border:1px solid rgba(255,255,255,0.02);}
+#playerInfo{display:flex; gap:12px; align-items:center; justify-content:space-between; padding:8px; background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02));}
+#playerInfo>div{display:flex; flex-direction:column; gap:4px; font-size:0.95rem; color:var(--text);}
+#playerInfo span{ font-weight:800; color:#fff; font-size:0.95rem;}
+#clocks{display:flex; gap:12px; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:10px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03)); border:1px solid rgba(255,255,255,0.03); font-weight:800; font-size:0.95rem;}
+#board{width:100%; max-width:420px; aspect-ratio:7/6; display:grid; grid-template-columns:repeat(7,1fr); grid-template-rows:repeat(6,1fr); gap:8px; padding:14px; border-radius:16px; background:linear-gradient(180deg, var(--board-hole), #082a3d); box-shadow:0 18px 40px rgba(1,8,15,0.7), inset 0 2px 10px rgba(255,255,255,0.02);}
+@media (max-width:420px){#board{padding:10px; gap:6px; border-radius:12px;}}
+.cell{width:100%; height:100%; aspect-ratio:1/1; border-radius:50%; display:flex; align-items:center; justify-content:center;
   background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.03), transparent 20%),
-              linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03));
-  box-shadow: inset 0 -6px 12px rgba(0,0,0,0.6), inset 0 2px 6px rgba(255,255,255,0.02);
-  cursor: pointer;
-  transition: transform .08s ease;
-  position:relative;
-  overflow:hidden;
-  border: 1px solid rgba(255,255,255,0.02);
+             linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.03));
+  box-shadow: inset 0 -6px 12px rgba(0,0,0,0.6), inset 0 2px 6px rgba(255,255,255,0.02); cursor:pointer; transition:transform .08s ease; position:relative; overflow:hidden; border:1px solid rgba(255,255,255,0.02);}
+.cell:active{transform:translateY(1px) scale(0.997);}
+.disc{width:86%; height:86%; border-radius:50%; background:#111; box-shadow:0 6px 14px var(--disc-shadow), inset 0 2px 8px rgba(255,255,255,0.03);}
+.cell::after{content:""; position:absolute; inset:10% 10%; border-radius:50%; background:radial-gradient(circle at 35% 30%, rgba(255,255,255,0.02), rgba(0,0,0,0.3)); z-index:0; pointer-events:none;}
+.disc.red{background:linear-gradient(180deg,#ff5b5b,#c43b3b); box-shadow:0 8px 18px rgba(196,59,59,0.28), inset 0 2px 8px rgba(255,255,255,0.06);}
+.disc.yellow{background:linear-gradient(180deg,#ffd35b,#d6a42c); box-shadow:0 8px 18px rgba(214,164,44,0.22), inset 0 2px 8px rgba(255,255,255,0.06);}
+@keyframes dropIn{from{transform:translateY(-40%) scale(.98); opacity:.85;} to{transform:translateY(0) scale(1); opacity:1;}}
+.disc.dropped{animation:dropIn .26s cubic-bezier(.2,.9,.3,1) both;}
+#rematchContainer{display:flex; gap:8px; align-items:center; justify-content:center; padding:8px; background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(0,0,0,0.02)); border-radius:12px;}
+@media (max-width:360px){body{padding:0.6rem} h1{font-size:1rem;} #loginContainer,#controls,#board{padding:8px; border-radius:10px;} input,button{min-height:40px; font-size:0.92rem;}}
+input:focus, textarea:focus, button:focus{outline:3px solid rgba(46,164,79,0.18); outline-offset:2px; border-radius:10px;}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
+</head>
+<body>
+<h1>Puissance 4 P2P</h1>
+
+<div id="loginContainer">
+  <input type="text" id="usernameInput" placeholder="Pseudo">
+  <input type="password" id="passwordInput" placeholder="Mot de passe">
+  <button id="createAccountBtn">Créer un compte</button>
+  <button id="loginBtn">Se connecter</button>
+  <div id="loginStatus"></div>
+</div>
+
+<div id="playerInfo" style="display:none;">
+  <div id="myEloContainer">Elo : <span id="myElo"></span></div>
+  <div id="opponentContainer" style="display:none;">Adversaire : <span id="opName">—</span> (<span id="opElo">—</span>)</div>
+</div>
+
+<div id="controls" style="display:none;">
+  <button id="createOffer">Créer Offre</button>
+  <button id="createAnswer" disabled>Créer Réponse</button>
+  <textarea id="codeField" placeholder="Colle ou copie le code ici"></textarea><br>
+  <button id="applyCode">Appliquer Code</button>
+  <button id="copyCode">Copier Code</button>
+  <div id="status">Statut : Déconnecté</div>
+</div>
+
+<div id="clocks" style="display:none;">
+  <div id="myClockContainer"><span id="myPseudo"></span> (<span id="myEloClock"></span>) : <span id="myClock">05:00</span></div>
+  <div id="opClockContainer"><span id="opPseudo"></span> (<span id="opEloClock"></span>) : <span id="opClock">05:00</span></div>
+</div>
+
+<div id="board"></div>
+
+<div id="rematchContainer">
+  <button id="rematchBtn">Revanche</button>
+  <button id="declineBtn">✖</button>
+  <span id="rematchStatus"></span>
+</div>
+<script>
+const SUPABASE_URL = 'https://nowqsciorntrzvbaiuyv.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vd3FzY2lvcm50cnp2YmFpdXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NTAwMzIsImV4cCI6MjA3NzMyNjAzMn0.Fze-O9qq5llDxbF4mRKV-JgaLvU3Z8N-O7VfUTNFrQQ';
+
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ---------------- VARIABLES ----------------
+let currentPlayer = 'red';
+let board = Array(6).fill(null).map(() => Array(7).fill(null));
+let myUsername = '';
+let myElo = 0;
+let opponent = {name:'', elo:0};
+
+// ---------------- UTILITAIRES ----------------
+function createBoardUI() {
+    const boardEl = document.getElementById('board');
+    boardEl.innerHTML = '';
+    for(let r=0;r<6;r++){
+        for(let c=0;c<7;c++){
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+            cell.addEventListener('click', ()=>dropDisc(c));
+            boardEl.appendChild(cell);
+        }
+    }
 }
 
-.cell:active{ transform: translateY(1px) scale(0.997); }
-
-.disc{
-  width:86%;
-  height:86%;
-  border-radius:50%;
-  background: #111;
-  box-shadow: 0 6px 14px var(--disc-shadow), inset 0 2px 8px rgba(255,255,255,0.03);              
-  transition: background .18s ease;              
-}              
-              
-.disc.red{ background: radial-gradient(circle at 30% 25%, #ff5c5c, #c80000); }              
-.disc.yellow{ background: radial-gradient(circle at 30% 25%, #ffea5c, #c7b800); }              
-              
-</style>              
-</head>              
-<body>              
-<h1>Puissance 4 P2P</h1>              
-
-<!-- LOGIN / REGISTER -->              
-<div id="loginContainer">              
-  <input type="text" id="username" placeholder="Pseudo" />              
-  <input type="password" id="password" placeholder="Mot de passe" />              
-  <button id="loginBtn">Se connecter</button>              
-  <button id="createAccountBtn">Créer un compte</button>              
-  <div id="loginStatus"></div>              
-</div>              
-
-<!-- PLAYER INFO -->              
-<div id="playerInfo" style="display:none;">              
-  <div>Vous: <span id="playerName"></span></div>              
-  <div>Elo: <span id="playerElo">0</span></div>              
-</div>              
-
-<!-- GAME BOARD -->              
-<div id="board" style="display:none;"></div>              
-
-<!-- REMATCH -->              
-<div id="rematchContainer" style="display:none;">              
-  <button id="rematchBtn">Revanche</button>              
-  <div id="rematchStatus"></div>              
-</div>              
-
-<!-- CLocks -->              
-<div id="clocks" style="display:none;">              
-  <span id="myClock">00:00</span>              
-  <span id="opponentClock">00:00</span>              
-</div>              
-
-<!-- WebRTC Offer/Answer -->              
-<div id="controls" style="display:none;">              
-  <textarea id="codeField" placeholder="Coller l'offre/answer ici"></textarea>              
-  <button id="applyCode">Appliquer le code</button>              
-</div>              
-
-<script type="module">              
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';              
-
-// Supabase config              
-const SUPABASE_URL = 'https://nowqsciorntrzvbaiuyv.supabase.co';              
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vd3FzY2lvcm50cnp2YmFpdXl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3NTAwMzIsImV4cCI6MjA3NzMyNjAzMn0.Fze-O9qq5llDxbF4mRKV-JgaLvU3Z8N-O7VfUTNFrQQ';              
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);              
-
-// GLOBALS              
-let player, gameState=[], turn=0, peerConnection, dataChannel;              
-const boardEl = document.getElementById('board');              
-const usernameInput = document.getElementById('username');              
-const passwordInput = document.getElementById('password');              
-const loginBtn = document.getElementById('loginBtn');              
-const createBtn = document.getElementById('createAccountBtn');              
-const loginStatus = document.getElementById('loginStatus');              
-const playerNameEl = document.getElementById('playerName');              
-const playerEloEl = document.getElementById('playerElo');              
-const rematchContainer = document.getElementById('rematchContainer');              
-const rematchBtn = document.getElementById('rematchBtn');              
-const rematchStatus = document.getElementById('rematchStatus');              
-const controls = document.getElementById('controls');              
-const codeField = document.getElementById('codeField');              
-const applyCodeBtn = document.getElementById('applyCode');              
-
-// ---------- AUTH ----------
-async function login() {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('username', usernameInput.value)
-    .eq('password', passwordInput.value)
-    .single();
-
-  if (error) {
-    loginStatus.textContent = 'Erreur: ' + error.message;
-    return;
-  }
-  player = data;
-  loginStatus.textContent = 'Connecté';
-  setupGameUI();
+function dropDisc(col){
+    for(let r=5;r>=0;r--){
+        if(!board[r][col]){
+            board[r][col] = currentPlayer;
+            updateCellUI(r, col, currentPlayer);
+            if(checkWin(r,col,currentPlayer)){
+                alert(currentPlayer.toUpperCase() + ' gagne !');
+                // TODO: Gérer ELO + remise à zéro
+            }
+            currentPlayer = currentPlayer==='red'?'yellow':'red';
+            break;
+        }
+    }
 }
 
-async function createAccount() {
-  // Vérifier si username existe déjà
-  const { data: existing } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('username', usernameInput.value)
-    .single();
+function updateCellUI(row,col,color){
+    const index = row*7 + col;
+    const cell = document.getElementsByClassName('cell')[index];
+    const disc = document.createElement('div');
+    disc.className = 'disc dropped ' + color;
+    cell.appendChild(disc);
+}
 
-  if (existing) {
-    loginStatus.textContent = 'Pseudo déjà utilisé';
-    return;
-  }
+function checkWin(r,c,color){
+    const directions = [[0,1],[1,0],[1,1],[1,-1]];
+    for(const [dr,dc] of directions){
+        let count=1;
+        for(let k=1;k<4;k++){
+            const nr=r+dr*k, nc=c+dc*k;
+            if(nr<0||nr>=6||nc<0||nc>=7) break;
+            if(board[nr][nc]===color) count++;
+            else break;
+        }
+        for(let k=1;k<4;k++){
+            const nr=r-dr*k, nc=c-dc*k;
+            if(nr<0||nr>=6||nc<0||nc>=7) break;
+            if(board[nr][nc]===color) count++;
+            else break;
+        }
+        if(count>=4) return true;
+    }
+    return false;
+}
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .insert([{ username: usernameInput.value, password: passwordInput.value, elo: 1000 }])
-    .select()
-    .single();
+// ---------------- SUPABASE ----------------
+async function createAccount(){
+    const username = document.getElementById('usernameInput').value.trim();
+    const password = document.getElementById('passwordInput').value;
+    if(!username||!password){ alert('Remplis tous les champs'); return; }
 
-  if (error) {
-    loginStatus.textContent = 'Erreur: ' + error.message;
-    return;
-  }
+    const {data,error} = await supabase.from('profiles').insert([{username, password, elo:1000}]);
+    if(error){document.getElementById('loginStatus').textContent = error.message; return;}
+    myUsername = username; myElo = 1000;
+    document.getElementById('loginContainer').style.display='none';
+    document.getElementById('playerInfo').style.display='flex';
+    document.getElementById('myElo').textContent = myElo;
+    document.getElementById('myPseudo').textContent = myUsername;
+    document.getElementById('myEloClock').textContent = myElo;
+}
 
-  loginStatus.textContent = 'Compte créé! Connectez-vous';
-}            
+async function login(){
+    const username = document.getElementById('usernameInput').value.trim();
+    const password = document.getElementById('passwordInput').value;
+    if(!username||!password){ alert('Remplis tous les champs'); return; }
 
-loginBtn.onclick = login;              
-createBtn.onclick = createAccount;              
+    const {data,error} = await supabase.from('profiles').select('*').eq('username',username).eq('password',password).single();
+    if(error){document.getElementById('loginStatus').textContent = 'Utilisateur non trouvé'; return;}
+    myUsername = username; myElo = data.elo;
+    document.getElementById('loginContainer').style.display='none';
+    document.getElementById('playerInfo').style.display='flex';
+    document.getElementById('myElo').textContent = myElo;
+    document.getElementById('myPseudo').textContent = myUsername;
+    document.getElementById('myEloClock').textContent = myElo;
+}
 
-function setupGameUI(){              
-  document.getElementById('loginContainer').style.display='none';              
-  playerNameEl.textContent=player.username;              
-  playerEloEl.textContent=player.elo;              
-  document.getElementById('playerInfo').style.display='flex';              
-  boardEl.style.display='grid';              
-  rematchContainer.style.display='flex';              
-  controls.style.display='flex';              
-  renderBoard();              
-}              
+// ---------------- EVENT LISTENERS ----------------
+document.getElementById('createAccountBtn').addEventListener('click', createAccount);
+document.getElementById('loginBtn').addEventListener('click', login);
 
-// ---------- BOARD ----------              
-function renderBoard(){              
-  boardEl.innerHTML='';              
-  for(let i=0;i<42;i++){              
-    const cell=document.createElement('div');              
-    cell.classList.add('cell');              
-    cell.dataset.index=i;              
-    if(gameState[i]){              
-      const disc=document.createElement('div');              
-      disc.classList.add('disc',gameState[i]==1?'red':'yellow');              
-      cell.appendChild(disc);              
-    }              
-    cell.onclick=()=>placeDisc(i%7);              
-    boardEl.appendChild(cell);              
-  }              
-}              
-
-function placeDisc(col){              
-  if(!peerConnection) return alert('Connectez-vous à un adversaire d’abord');              
-  for(let row=5;row>=0;row--){              
-    let idx=row*7+col;              
-    if(!gameState[idx]){              
-      gameState[idx]=turn?2:1;              
-      turn=1-turn;              
-      renderBoard();              
-      sendMove(idx);              
-      checkWinner();              
-      break;              
-    }              
-  }              
-}              
-
-// ---------- WINNER ----------              
-function checkWinner(){              
-  const lines=[              
-    // horizontales              
-    [0,1,2,3,4,5,6],[7,8,9,10,11,12],[14,15,16,17,18,19],[21,22,23,24,25,26],[28,29,30,31,32,33],[35,36,37,38,39,40],              
-    // verticales              
-    [0,7,14,21,28,35],[1,8,15,22,29,36],[2,9,16,23,30,37],[3,10,17,24,31,38],[4,11,18,25,32,39],[5,12,19,26,33,40],[6,13,20,27,34,41]              
-  ];              
-  for(const line of lines){              
-    const [a,b,c,d]=line;              
-    if(gameState[a] && gameState[a]==gameState[b] && gameState[a]==gameState[c] && gameState[a]==gameState[d]){              
-      alert(`Joueur ${gameState[a]} gagne !`);              
-      return;              
-    }              
-  }              
-}              
-
-// ---------- P2P WEBRTC ----------              
-applyCodeBtn.onclick=()=>{              
-  const code=codeField.value.trim();              
-  if(!peerConnection){              
-    peerConnection=new RTCPeerConnection();              
-    dataChannel=peerConnection.createDataChannel('game');              
-    dataChannel.onmessage=(e)=>receiveMove(e.data);              
-    peerConnection.ondatachannel=(e)=>{              
-      dataChannel=e.channel;              
-      dataChannel.onmessage=(ev)=>receiveMove(ev.data);              
-    }              
-  }              
-  const desc=JSON.parse(code);              
-  peerConnection.setRemoteDescription(desc);              
-  if(desc.type=='offer'){              
-    peerConnection.createAnswer().then(ans=>{              
-      peerConnection.setLocalDescription(ans);              
-      codeField.value=JSON.stringify(ans);              
-    });              
-  }              
-}              
-
-function sendMove(idx){              
-  if(dataChannel && dataChannel.readyState==='open'){              
-    dataChannel.send(idx);              
-  }              
-}              
-
-function receiveMove(idx){              
-  gameState[idx]=turn?2:1;              
-  turn=1-turn;              
-  renderBoard();              
-  checkWinner();              
-}              
-
-</script>              
-</body>              
+// ---------------- INITIALISATION ----------------
+createBoardUI();
+</script>
+</body>
 </html>
