@@ -303,13 +303,33 @@ function updateClocks(){
 
 function formatTime(sec){ return `${Math.floor(sec/60).toString().padStart(2,'0')}:${(sec%60).toString().padStart(2,'0')}`; }
 
-function endGame(message, winnerColor=null){
+async function endGame(message, winnerColor=null){
   gameOver = true;
   stopAllIntervals();
   clearBoard();
   myTime = 300; opTime = 300; updateClocks();
   el('rematchContainer').style.display = 'flex';
   setStatus(message);
+
+  if(!currentMatch) return;
+
+  let S;
+  if(winnerColor===myColor) S = 1;
+  else if(winnerColor===null) S = 0.5;
+  else S = 0;
+
+  const opponentElo = (myColor==='red') ? currentMatch.p2_elo : currentMatch.p1_elo;
+  const expected = 1 / (1 + Math.pow(10, (opponentElo - currentUser.elo)/400));
+  const delta = Math.round(16 * (S - expected));
+  currentUser.elo += delta;
+
+  el('myElo').textContent = currentUser.elo;
+  el('myEloClock').textContent = currentUser.elo;
+
+  const { error } = await supabase.from('profiles').update({ elo: currentUser.elo }).eq('username', currentUser.username);
+  if(error) console.log("Erreur update Elo:", error);
+
+  await supabase.from('matches').update({ status:'finished' }).eq('id', currentMatch.id);
 }
 
 function setStatus(msg){ el('status').textContent="Statut : "+msg; }
