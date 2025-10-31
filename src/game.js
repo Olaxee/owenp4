@@ -15,6 +15,8 @@ let board = Array.from({ length: ROWS }, () => Array(COLS).fill(null))
 let myTurn = false
 let match = null
 let playerNum = 0 // 1 ou 2
+let gameOver = false
+let subscription = null
 
 // 🔹 Créer la grille HTML
 function renderBoard() {
@@ -41,18 +43,18 @@ function renderBoard() {
 
 // 🔹 Placement d’un pion
 async function placeDisc(col) {
-  if (!myTurn) return
+  if (!myTurn || gameOver) return
   for (let r = ROWS - 1; r >= 0; r--) {
     if (!board[r][col]) {
       board[r][col] = playerNum
-      myTurn = false
       renderBoard()
+      checkWin()
       await supabase
         .from('matches')
         .update({ board })
         .eq('id', match.id)
-      checkWin()
-      status.textContent = "Tour de l'adversaire..."
+      myTurn = false
+      if (!gameOver) status.textContent = "Tour de l'adversaire..."
       return
     }
   }
@@ -77,12 +79,19 @@ function checkWin() {
           cc+=dc
         }
         if(count>=4){
+          gameOver = true
           status.textContent = (player===playerNum ? 'Vous avez gagné !' : 'Vous avez perdu !')
           updateEloAfterGame(player)
-          myTurn=false
+          return
         }
       }
     }
+  }
+
+  // Vérification match nul
+  if (board.flat().every(cell => cell !== null) && !gameOver) {
+    gameOver = true
+    status.textContent = "Match nul !"
   }
 }
 
@@ -92,15 +101,24 @@ async function updateEloAfterGame(winnerPlayerNum){
     .from('users')
     .select('*')
     .in('id', [match.player1, match.player2])
+  
   const player1 = players.find(p => p.id === match.player1)
   const player2 = players.find(p => p.id === match.player2)
   const winnerId = winnerPlayerNum === 1 ? player1.id : player2.id
+
   await updateElo(player1, player2, winnerId)
+
+  // Affiche le nouvel Elo
+  const { data: updatedPlayers } = await supabase
+    .from('users')
+    .select('*')
+    .in('id', [player1.id, player2.id])
+  
+  status.textContent += ` | Elo : ${updatedPlayers[0].username}=${updatedPlayers[0].elo}, ${updatedPlayers[1].username}=${updatedPlayers[1].elo}`
 }
 
 // 🔹 Matchmaking simple
 async function findMatch() {
-  // Vérifier s’il existe un match en attente
   const { data: waiting } = await supabase
     .from('matches')
     .select('*')
@@ -115,8 +133,8 @@ async function findMatch() {
       .eq('id', match.id)
     playerNum = 2
     myTurn = false
+    status.textContent = "Match trouvé ! C’est le tour de l’adversaire..."
   } else {
-    // Crée un nouveau match
     const { data: newMatch } = await supabase
       .from('matches')
       .insert({ player1: user.id, board })
@@ -133,15 +151,19 @@ async function findMatch() {
 
 // 🔹 Écoute des mises à jour en temps réel
 function listenMatchUpdates() {
-  supabase
-    .from(`matches:id=eq.${match.id}`)
-    .on('UPDATE', payload => {
+  if (subscription) subscription.unsubscribe()
+
+  subscription = supabase
+    .channel(`match-${match.id}`)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches', filter: `id=eq.${match.id}` }, payload => {
       const updated = payload.new
       board = updated.board
       renderBoard()
-      if ((playerNum === 1 && updated.player2) || (playerNum === 2)) {
-        myTurn = true
-        status.textContent = 'C’est ton tour !'
+      if (!gameOver) {
+        if ((playerNum === 1 && updated.player2) || (playerNum === 2)) {
+          myTurn = true
+          status.textContent = 'C’est ton tour !'
+        }
       }
     })
     .subscribe()
