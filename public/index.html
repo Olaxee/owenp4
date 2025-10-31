@@ -1,26 +1,60 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Puissance 4 - Connexion</title>
-  <link rel="stylesheet" href="styles/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Puissance 4 - Connexion</title>
+<link rel="stylesheet" href="/styles/style.css">
 </head>
 <body>
   <div class="container">
     <h1>Puissance 4</h1>
-    
-    <div class="form">
-      <input type="text" id="username" placeholder="Nom d'utilisateur">
-      <input type="password" id="password" placeholder="Mot de passe">
-      
-      <button id="loginBtn">Se connecter</button>
-      <button id="signupBtn">Créer un compte</button>
-      
-      <p id="message"></p>
+
+    <div class="auth">
+      <h2>Connexion</h2>
+      <input type="text" id="login-username" placeholder="Username">
+      <input type="password" id="login-password" placeholder="Password">
+      <button id="login-btn">Se connecter</button>
     </div>
+
+    <div class="auth">
+      <h2>Inscription</h2>
+      <input type="text" id="signup-username" placeholder="Username">
+      <input type="password" id="signup-password" placeholder="Password">
+      <button id="signup-btn">Créer un compte</button>
+    </div>
+
+    <p id="message" class="message"></p>
   </div>
 
-  <script type="module" src="src/index.js"></script>
+<script type="module">
+import { login, signup } from '/src/main.js'
+
+const loginBtn = document.getElementById('login-btn')
+const signupBtn = document.getElementById('signup-btn')
+const message = document.getElementById('message')
+
+loginBtn.addEventListener('click', async () => {
+  const username = document.getElementById('login-username').value
+  const password = document.getElementById('login-password').value
+  try {
+    await login(username, password)
+    window.location.href = '/game.html'
+  } catch (err) {
+    message.textContent = 'Erreur de connexion : ' + err.message
+  }
+})
+
+signupBtn.addEventListener('click', async () => {
+  const username = document.getElementById('signup-username').value
+  const password = document.getElementById('signup-password').value
+  try {
+    await signup(username, password)
+    window.location.href = '/game.html'
+  } catch (err) {
+    message.textContent = 'Erreur d\'inscription : ' + err.message
+  }
+})
+</script>
 </body>
 </html>
