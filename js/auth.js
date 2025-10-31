@@ -2,7 +2,7 @@ const supabaseUrl = "VOTRE_SUPABASE_URL";
 const supabaseKey = "VOTRE_SUPABASE_ANON_KEY";
 const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-// Login
+// Connexion
 document.getElementById('loginForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const username = document.getElementById('username').value;
@@ -23,7 +23,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e)=>{
   }
 });
 
-// Signup
+// Inscription
 document.getElementById('signupForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const username = document.getElementById('signupUsername').value;
