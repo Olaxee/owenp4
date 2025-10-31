@@ -1,17 +1,32 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Puissance 4</title>
-  <link rel="stylesheet" href="styles/style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Puissance 4 - Jeu</title>
+<link rel="stylesheet" href="/styles/style.css">
 </head>
 <body>
-  <h1>Puissance 4</h1>
-  <div id="game">
-    <table id="board"></table>
+  <div class="container">
+    <h1>Puissance 4</h1>
+    <div id="grid" class="grid"></div>
+    <button id="new-game-btn">Nouvelle Partie</button>
+    <p id="game-message" class="message"></p>
   </div>
-  <p id="status"></p>
 
-  <script type="module" src="src/game.js"></script>
+<script type="module">
+import { initGame } from '/src/game.js'
+
+const newGameBtn = document.getElementById('new-game-btn')
+const gameMessage = document.getElementById('game-message')
+
+newGameBtn.addEventListener('click', () => {
+  initGame()
+  gameMessage.textContent = ''
+})
+
+// Initialisation automatique à l'ouverture
+initGame()
+</script>
 </body>
 </html>
