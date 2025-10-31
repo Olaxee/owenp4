@@ -1,1 +1,41 @@
 
+body {
+  font-family: sans-serif;
+  background: #071128;
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+.container {
+  background: #0e2436;
+  padding: 20px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+input {
+  display: block;
+  width: 200px;
+  margin: 10px auto;
+  padding: 8px;
+  border-radius: 5px;
+  border: none;
+}
+
+button {
+  margin: 5px;
+  padding: 8px 15px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  background-color: #2a9d8f;
+  color: white;
+}
+
+p {
+  margin-top: 10px;
+  color: #e76f51;
+}
