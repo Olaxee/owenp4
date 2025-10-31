@@ -1,5 +1,5 @@
 // --- Initialisation Supabase ---
-const supabaseUrl = "VOTRE_SUPABASE_URL";
+const supabaseUrl = "https://onvmbhazjlivjedwdusp.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9udm1iaGF6amxpdmplZHdkdXNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzExNzcsImV4cCI6MjA3NzUwNzE3N30.669S7AH9jVtQrDDG7FESAFIgXX04ul2l4TQwBUfjMCo";
 const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
