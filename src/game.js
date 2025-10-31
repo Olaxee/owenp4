@@ -1,40 +1,56 @@
+import { updateElo } from './elo.js'
 import { supabase } from './supabase.js'
 
-export async function login(username, password) {
-  const { data, error } = await supabase
-    .from('users')
-    .select('*')
-    .eq('username', username)
-    .eq('password', password)
-    .single()
-  
-  if (error) throw error
-  localStorage.setItem('user', JSON.stringify(data))
-  return data
+const ROWS = 6
+const COLS = 7
+let board = Array.from({length: ROWS}, () => Array(COLS).fill(null))
+let currentPlayer = 'red' // ou 'yellow'
+
+// Dessin de la grille et gestion des clics
+export function initGame() {
+  const grid = document.getElementById('grid')
+  grid.innerHTML = ''
+  for (let r = 0; r < ROWS; r++) {
+    const row = document.createElement('div')
+    row.classList.add('row')
+    for (let c = 0; c < COLS; c++) {
+      const cell = document.createElement('div')
+      cell.classList.add('cell')
+      cell.dataset.row = r
+      cell.dataset.col = c
+      cell.addEventListener('click', () => handleMove(r, c))
+      row.appendChild(cell)
+    }
+    grid.appendChild(row)
+  }
 }
 
-export async function signup(username, password) {
-  const { data, error } = await supabase
-    .from('users')
-    .insert({ username, password })
-    .select()
-    .single()
-  
-  if (error) throw error
-  localStorage.setItem('user', JSON.stringify(data))
-  return data
+function handleMove(r, c) {
+  for (let i = ROWS - 1; i >= 0; i--) {
+    if (!board[i][c]) {
+      board[i][c] = currentPlayer
+      updateUI(i, c)
+      if (checkWin(i, c)) endGame()
+      currentPlayer = currentPlayer === 'red' ? 'yellow' : 'red'
+      break
+    }
+  }
 }
 
-export async function findMatch(currentUser) {
-  const { data: opponents } = await supabase
-    .from('users')
-    .select('*')
-    .neq('id', currentUser.id)
-  
-  const best = opponents.sort(
-    (a, b) => Math.abs(a.elo - currentUser.elo) - Math.abs(b.elo - currentUser.elo)
-  )[0]
+function updateUI(r, c) {
+  const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`)
+  cell.style.backgroundColor = board[r][c]
+}
 
-  // Ici, tu peux créer un match dans Supabase si besoin
-  return best
+// À compléter : détection de victoire
+function checkWin(r, c) {
+  // logique classique Puissance 4
+  return false
+}
+
+// Fin du jeu et mise à jour Elo
+function endGame(winnerId) {
+  const user = JSON.parse(localStorage.getItem('user'))
+  const opponent = {} // récupérer l'adversaire depuis Supabase ou localStorage
+  updateElo(user, opponent, winnerId)
 }
