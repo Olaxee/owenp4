@@ -53,4 +53,21 @@ document.getElementById('loginForm').addEventListener('submit', async e=>{
 
   localStorage.setItem('user', JSON.stringify(userData));
   window.location.href = "game.html";
+
+window.addEventListener('DOMContentLoaded', () => {
+
+  const signupForm = document.getElementById('signupForm');
+  const loginForm = document.getElementById('loginForm');
+
+  signupForm.addEventListener('submit', async e => {
+    e.preventDefault();  // très important
+    // ton code signup ici
+  });
+
+  loginForm.addEventListener('submit', async e => {
+    e.preventDefault();  // très important
+    // ton code login ici
+  });
+
+});
 });
