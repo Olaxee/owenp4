@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Puissance 4 - Jeu</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+  #board{
+    display:grid;
+    grid-template-columns: repeat(7, 60px);
+    grid-template-rows: repeat(6, 60px);
+    gap:5px;
+    margin:20px auto;
+    background:#0e1b3a;
+    padding:5px;
+  }
+  .cell{
+    width:60px;
+    height:60px;
+    background:#071128;
+    border-radius:50%;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-size:30px;
+    cursor:pointer;
+  }
+  .red{background:red;}
+  .yellow{background:yellow;}
+</style>
+</head>
+<body>
+<h1>Puissance 4</h1>
+<div id="status">Recherche d’adversaire...</div>
+<div id="board"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script src="js/elo.js"></script>
+<script src="js/matchmaking.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
