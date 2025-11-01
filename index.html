@@ -72,51 +72,29 @@ function login(){
   });
 }
 
-// --- MATCHMAKING AVEC RETRY AUTOMATIQUE ---
-async function startMatch(){
+// --- MATCHMAKING AVEC RPC ATOMIQUE ---
+async function startMatch() {
   document.getElementById('status').innerText='Recherche d\'adversaire...';
-
   try{
-    let { data: waitingMatches } = await supabase
-      .from('matches')
-      .select('*')
-      .eq('status','waiting')
-      .limit(1);
-
-    if(waitingMatches.length>0){
-      const matchToJoin = waitingMatches[0];
-
-      let { data, error } = await supabase
-        .from('matches')
-        .update({ player2: currentUser.id, status:'playing', turn: matchToJoin.player1 })
-        .eq('id', matchToJoin.id)
-        .eq('player2', null); // ✅ condition atomique
-
-      if(error || data.length===0){
-        // Réessayer automatiquement après 500ms
-        setTimeout(startMatch, 500);
-        return;
-      }
-
-      currentMatch = data[0];
-      subscribeMatch(currentMatch.id);
-
-    } else {
-      // Créer un nouveau match
-      const { data:newMatch, error:newErr } = await supabase
-        .from('matches')
-        .insert([{ player1: currentUser.id, status:'waiting', grid:gridState }])
-        .select()
-        .single();
-
-      if(newErr){ alert('Erreur création match'); return; }
-
-      currentMatch = newMatch;
-      subscribeMatch(currentMatch.id);
+    const { data, error } = await supabase.rpc('join_or_create_match', { uid: currentUser.id });
+    if(error){ 
+      console.log('Erreur matchmaking RPC', error);
+      setTimeout(startMatch, 500); 
+      return;
     }
 
+    currentMatch = data[0];
+    subscribeMatch(currentMatch.id);
+
+    if(currentMatch.status==='playing' && currentMatch.turn===currentUser.id){
+      document.getElementById('status').innerText="C'est votre tour";
+    } else if(currentMatch.status==='playing'){
+      document.getElementById('status').innerText="Tour de votre adversaire";
+    } else if(currentMatch.status==='waiting'){
+      document.getElementById('status').innerText="En attente d'un adversaire...";
+    }
   } catch(err){
-    console.log('Erreur matchmaking:', err);
+    console.log('Erreur matchmaking RPC', err);
     setTimeout(startMatch, 500);
   }
 }
