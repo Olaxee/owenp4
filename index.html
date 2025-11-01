@@ -39,9 +39,9 @@ button { margin:5px; padding:10px; cursor:pointer; }
 </div>
 
 <script>
-window.supabaseUrl = 'https://albdeswcrzcgwnlfcrvm.supabase.co';
-window.supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsYmRlc3djcnpjZ3dubGZjcnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzI5NzgsImV4cCI6MjA3NzUwODk3OH0.IQqPKCsdexg0mNc4M3uQUgX3QbZXjI7UknyPwDzdSk0';
-window.supabase = supabase.createClient(window.supabaseUrl, window.supabaseKey);
+const supabaseUrl = 'https://albdeswcrzcgwnlfcrvm.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsYmRlc3djcnpjZ3dubGZjcnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzI5NzgsImV4cCI6MjA3NzUwODk3OH0.IQqPKCsdexg0mNc4M3uQUgX3QbZXjI7UknyPwDzdSk0';
+const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 let currentUser = null;
 let currentMatch = null;
@@ -55,7 +55,7 @@ async function register(){
   const password = document.getElementById('password').value.trim();
   if(!username || !password){ alert('Remplissez tous les champs'); return; }
 
-  const { data, error } = await supabase.from('users').insert([{ username, password, elo:1000 }]);
+  const { error } = await supabase.from('users').insert([{ username, password, elo:1000 }]);
   if(error){ alert('Erreur: '+error.message); return; }
   alert('Inscription réussie ! Vous pouvez maintenant vous connecter.');
 }
@@ -78,8 +78,7 @@ async function login(){
 
 // --- DÉTERMINER LA COULEUR DU JOUEUR ---
 function getPlayerColor(){
-  if(!currentMatch) return 'red';
-  if(!currentMatch.player2) return 'red'; // match pas encore commencé
+  if(!currentMatch || !currentMatch.player2) return 'red';
   return currentUser.id === currentMatch.player1 ? 'red' : 'yellow';
 }
 
@@ -88,15 +87,8 @@ async function startMatch(){
   document.getElementById('status').innerText='Recherche d\'adversaire...';
 
   const { data, error } = await supabase.rpc('join_or_create_match', { uid: currentUser.id });
-  if(error){ 
-    alert('Erreur matchmaking RPC: '+error.message);
-    return;
-  }
-
-  if(!data || data.length===0){
-    document.getElementById('status').innerText='Aucun match trouvé, réessayez.';
-    return;
-  }
+  if(error){ alert('Erreur matchmaking RPC: '+error.message); return; }
+  if(!data || data.length===0){ document.getElementById('status').innerText='Aucun match trouvé'; return; }
 
   currentMatch = data[0];
   gridState = currentMatch.grid || Array(6).fill().map(()=>Array(7).fill(null));
@@ -112,20 +104,20 @@ async function startMatch(){
 // --- SUBSCRIBE MATCH ---
 function subscribeMatch(matchId){
   subscription = supabase.channel('match:'+matchId)
-  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'matches',filter:`id=eq.${matchId}`},payload=>{
-    const match = payload.new;
-    currentMatch = match;
-    gridState = match.grid;
-    currentPlayerColor = getPlayerColor();
-    drawGrid();
-    updateStatus();
-  })
-  .subscribe();
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'matches', filter:`id=eq.${matchId}` }, payload=>{
+      currentMatch = payload.new;
+      gridState = currentMatch.grid;
+      currentPlayerColor = getPlayerColor();
+      drawGrid();
+      updateStatus();
+    })
+    .subscribe();
 }
 
 // --- MISE À JOUR DU STATUT ---
 function updateStatus(){
   if(!currentMatch) return;
+
   if(currentMatch.status==='waiting'){
     document.getElementById('status').innerText="En attente d'un adversaire...";
   } else if(currentMatch.status==='playing'){
@@ -164,11 +156,8 @@ function drawGrid(){
 // --- COUP ---
 async function makeMove(col){
   if(!currentMatch || currentMatch.status!=='playing') return;
-  if(!currentMatch.turn) return; // match pas encore commencé
-  if(currentMatch.turn !== currentUser.id){ 
-    alert("Ce n'est pas votre tour"); 
-    return; 
-  }
+  if(!currentMatch.turn) return;
+  if(currentMatch.turn !== currentUser.id){ alert("Ce n'est pas votre tour"); return; }
 
   for(let r=5;r>=0;r--){
     if(!gridState[r][col]){
