@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Puissance 4 Multi</title>
+<title>Puissance 4 Multi - Elo</title>
 <style>
   body {
     background:#071128;
@@ -72,12 +72,12 @@
 <script>
   const SUPABASE_URL = "https://jyzcgwunvjjnhmjcrfim.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5emNnd3VudmpqbmhtamNyZmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzYzMDMsImV4cCI6MjA3NzUxMjMwM30.O8m8Uao-TTIWbHb65XIBkh7y5GAfTLjwWzFOTFizyYQ";
-
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   let currentUser = null;
   let currentGame = null;
   let board = Array(42).fill(0);
+  let gameOver = false;
 
   const authDiv = document.getElementById('auth');
   const lobbyDiv = document.getElementById('lobby');
@@ -87,12 +87,15 @@
   const showCode = document.getElementById('showCode');
   const gameCode = document.getElementById('gameCode');
 
-  // --- Auth ---
+  const usernameInput = document.getElementById('username');
+  const passwordInput = document.getElementById('password');
+
+  // --- AUTH ---
   document.getElementById('signup').onclick = async () => {
     const username = usernameInput.value.trim();
     const password = passwordInput.value.trim();
     if(!username || !password) return alert('Remplis tous les champs');
-    const { error } = await supabaseClient.from('users').insert({ username, password });
+    const { error } = await supabaseClient.from('users').insert({ username, password, elo: 1000 });
     if(error) return alert(error.message);
     alert('Inscription réussie ! Connectez-vous.');
   };
@@ -111,10 +114,7 @@
     lobbyDiv.style.display = 'flex';
   };
 
-  const usernameInput = document.getElementById('username');
-  const passwordInput = document.getElementById('password');
-
-  // --- Lobby ---
+  // --- LOBBY ---
   function generateCode() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   }
@@ -122,14 +122,13 @@
   document.getElementById('createGame').onclick = async () => {
     const code = generateCode();
     const { data, error } = await supabaseClient.from('games')
-      .insert({ code, player1: currentUser.id, board: board.join(','), turn: 1 })
+      .insert({ code, player1: currentUser.id, board: board.join(','), turn: 1, winner: null })
       .select()
       .maybeSingle();
     if(error) return alert(error.message);
     currentGame = data;
     showCode.style.display = 'block';
     gameCode.textContent = code;
-    lobbyDiv.style.display = 'flex';
     gameDiv.style.display = 'flex';
     boardDiv.style.display = 'none';
     statusH2.textContent = "En attente d'un adversaire...";
@@ -156,7 +155,7 @@
     pollGame();
   };
 
-  // --- Board ---
+  // --- BOARD ---
   function renderBoard() {
     boardDiv.innerHTML = '';
     board.forEach((cell, idx) => {
@@ -168,9 +167,10 @@
   }
 
   async function makeMove(col) {
-    if(!currentGame) return;
+    if(gameOver || !currentGame) return;
     const turnPlayer = currentGame.turn === 1 ? currentGame.player1 : currentGame.player2;
     if(currentUser.id !== turnPlayer) return;
+
     for(let row = 5; row >= 0; row--) {
       const idx = row * 7 + col;
       if(board[idx] === 0) {
@@ -178,6 +178,13 @@
         break;
       }
     }
+
+    if(checkWin(currentGame.turn)) {
+      gameOver = true;
+      await endGame(currentGame.turn);
+      return;
+    }
+
     const { data, error } = await supabaseClient.from('games')
       .update({ board: board.join(','), turn: currentGame.turn === 1 ? 2 : 1 })
       .eq('id', currentGame.id)
@@ -188,6 +195,49 @@
     renderBoard();
   }
 
+  function checkWin(player) {
+    const b = board;
+    // Horizontale
+    for(let r=0;r<6;r++) for(let c=0;c<4;c++)
+      if(b[r*7+c]===player&&b[r*7+c+1]===player&&b[r*7+c+2]===player&&b[r*7+c+3]===player) return true;
+    // Verticale
+    for(let c=0;c<7;c++) for(let r=0;r<3;r++)
+      if(b[r*7+c]===player&&b[(r+1)*7+c]===player&&b[(r+2)*7+c]===player&&b[(r+3)*7+c]===player) return true;
+    // Diagonale /
+    for(let r=3;r<6;r++) for(let c=0;c<4;c++)
+      if(b[r*7+c]===player&&b[(r-1)*7+c+1]===player&&b[(r-2)*7+c+2]===player&&b[(r-3)*7+c+3]===player) return true;
+    // Diagonale \
+    for(let r=0;r<3;r++) for(let c=0;c<4;c++)
+      if(b[r*7+c]===player&&b[(r+1)*7+c+1]===player&&b[(r+2)*7+c+2]===player&&b[(r+3)*7+c+3]===player) return true;
+    return false;
+  }
+
+  async function endGame(winnerTurn) {
+    const winnerId = winnerTurn === 1 ? currentGame.player1 : currentGame.player2;
+    const loserId = winnerTurn === 1 ? currentGame.player2 : currentGame.player1;
+
+    await supabaseClient.from('games').update({ winner: winnerId }).eq('id', currentGame.id);
+
+    // Récupérer ELO
+    const { data: users } = await supabaseClient.from('users').select().in('id', [winnerId, loserId]);
+    const winner = users.find(u => u.id === winnerId);
+    const loser = users.find(u => u.id === loserId);
+
+    const R1 = winner.elo;
+    const R2 = loser.elo;
+
+    const E1 = 1 / (1 + 10 ** ((R2 - R1) / 400));
+    const E2 = 1 / (1 + 10 ** ((R1 - R2) / 400));
+
+    const R1new = Math.round(R1 + 16 * (1 - E1));
+    const R2new = Math.round(R2 + 16 * (0 - E2));
+
+    await supabaseClient.from('users').update({ elo: R1new }).eq('id', winnerId);
+    await supabaseClient.from('users').update({ elo: R2new }).eq('id', loserId);
+
+    statusH2.textContent = `🎉 Joueur ${winnerTurn} a gagné ! (+${R1new - R1} ELO)`;
+  }
+
   async function pollGame() {
     if(!currentGame) return;
     const { data, error } = await supabaseClient.from('games').select().eq('id', currentGame.id).maybeSingle();
@@ -196,7 +246,7 @@
       currentGame = data;
       board = currentGame.board ? currentGame.board.split(',').map(Number) : Array(42).fill(0);
       const bothPlayers = currentGame.player1 && currentGame.player2;
-      if(bothPlayers) {
+      if(bothPlayers && !gameOver) {
         boardDiv.style.display = 'grid';
         statusH2.textContent =
           (currentGame.turn === 1 && currentGame.player1 === currentUser.id) ||
