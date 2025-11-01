@@ -1,278 +1,235 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Puissance 4 Multi avec ELO</title>
-<style>
-  body {
-    background:#071128;
-    color:white;
-    font-family:sans-serif;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    min-height:100vh;
-    margin:0;
-  }
-  #auth, #lobby, #game { display:none; flex-direction:column; align-items:center; gap:10px; }
-  input, button { padding:5px 10px; margin:5px; }
-  #board {
-    display:grid;
-    grid-template-columns:repeat(7,50px);
-    grid-template-rows:repeat(6,50px);
-    gap:5px;
-    margin-top:20px;
-  }
-  .cell {
-    width:50px;
-    height:50px;
-    background:#333;
-    border-radius:50%;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    cursor:pointer;
-  }
-  .player1 { background:red; }
-  .player2 { background:yellow; }
-  #eloDisplay {
-    position:fixed;
-    top:10px;
-    right:20px;
-    background:#111a;
-    padding:6px 10px;
-    border-radius:8px;
-    font-weight:bold;
-  }
-</style>
+  <meta charset="UTF-8">
+  <title>Puissance 4 avec ELO</title>
+  <script src="https://unpkg.com/@supabase/supabase-js"></script>
+  <style>
+    body {
+      background: #0a1020;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    #auth, #game { display: none; margin-top: 50px; }
+    input { margin: 5px; padding: 8px; border-radius: 5px; border: none; }
+    button { margin: 5px; padding: 8px 16px; border: none; border-radius: 5px; background: #1976d2; color: white; cursor: pointer; }
+    button:hover { background: #1565c0; }
+    table { margin: 20px auto; border-collapse: collapse; }
+    td {
+      width: 60px; height: 60px; background: #112; border-radius: 50%;
+      border: 2px solid #223;
+    }
+    .R { background: red; }
+    .Y { background: yellow; }
+    #elo {
+      position: absolute;
+      top: 10px;
+      right: 20px;
+      font-weight: bold;
+      background: rgba(0,0,0,0.4);
+      padding: 8px 12px;
+      border-radius: 10px;
+    }
+  </style>
 </head>
 <body>
+  <h1>Puissance 4</h1>
+  <div id="elo">ELO: 1000</div>
 
-<div id="eloDisplay"></div>
+  <div id="auth">
+    <h2>Connexion / Inscription</h2>
+    <input id="email" type="email" placeholder="Email"><br>
+    <input id="password" type="password" placeholder="Mot de passe"><br>
+    <button id="signup">Inscription</button>
+    <button id="login">Connexion</button>
+  </div>
 
-<!-- Connexion -->
-<div id="auth" style="display:flex;">
-  <h2>Connexion / Inscription</h2>
-  <input id="username" placeholder="Nom d'utilisateur">
-  <input id="password" type="password" placeholder="Mot de passe">
-  <button id="signup">S'inscrire</button>
-  <button id="login">Se connecter</button>
-</div>
+  <div id="game">
+    <div id="status"></div>
+    <div id="code-section">
+      <button id="create">Créer un code</button>
+      <input id="joinCode" maxlength="6" placeholder="Entrer code à 6 caractères">
+      <button id="join">Rejoindre</button>
+      <p id="showCode"></p>
+    </div>
+    <table id="grid"></table>
+  </div>
 
-<!-- Lobby -->
-<div id="lobby">
-  <h2>Lobby</h2>
-  <button id="createGame">Créer une partie</button>
-  <input id="joinCode" placeholder="Code à rejoindre">
-  <button id="joinGame">Rejoindre</button>
-  <h3 id="showCode" style="display:none;">Code : <span id="gameCode"></span></h3>
-</div>
+  <script>
+    const SUPABASE_URL = "https://jyzcgwunvjjnhmjcrfim.supabase.co";
+    const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5emNnd3VudmpqbmhtamNyZmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzYzMDMsImV4cCI6MjA3NzUxMjMwM30.O8m8Uao-TTIWbHb65XIBkh7y5GAfTLjwWzFOTFizyYQ";
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-<!-- Jeu -->
-<div id="game">
-  <h2 id="status">En attente d'un adversaire...</h2>
-  <div id="board"></div>
-</div>
+    const authDiv = document.getElementById("auth");
+    const gameDiv = document.getElementById("game");
+    const grid = document.getElementById("grid");
+    const status = document.getElementById("status");
+    const eloDisplay = document.getElementById("elo");
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-const SUPABASE_URL = "https://jyzcgwunvjjnhmjcrfim.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5emNnd3VudmpqbmhtamNyZmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzYzMDMsImV4cCI6MjA3NzUxMjMwM30.O8m8Uao-TTIWbHb65XIBkh7y5GAfTLjwWzFOTFizyYQ";
+    let sessionUser = null;
+    let currentGame = null;
+    let playerColor = null;
+    let gameCode = null;
 
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-let currentUser = null;
-let currentGame = null;
-let board = Array(42).fill(0);
-let playerNumber = 0;
-
-const authDiv = document.getElementById('auth');
-const lobbyDiv = document.getElementById('lobby');
-const gameDiv = document.getElementById('game');
-const boardDiv = document.getElementById('board');
-const statusH2 = document.getElementById('status');
-const showCode = document.getElementById('showCode');
-const gameCode = document.getElementById('gameCode');
-const eloDisplay = document.getElementById('eloDisplay');
-
-// --- Auth ---
-const usernameInput = document.getElementById('username');
-const passwordInput = document.getElementById('password');
-
-document.getElementById('signup').onclick = async () => {
-  const username = usernameInput.value.trim();
-  const password = passwordInput.value.trim();
-  if (!username || !password) return alert("Remplis tous les champs");
-  const { error } = await supabaseClient.from('users').insert({ username, password, elo: 1000 });
-  if (error) return alert(error.message);
-  alert("Inscription réussie !");
-};
-
-document.getElementById('login').onclick = async () => {
-  const username = usernameInput.value.trim();
-  const password = passwordInput.value.trim();
-  const { data, error } = await supabaseClient.from('users')
-    .select()
-    .eq('username', username)
-    .eq('password', password)
-    .maybeSingle();
-  if (error || !data) return alert("Identifiants invalides");
-  currentUser = data;
-  eloDisplay.textContent = `ELO : ${currentUser.elo}`;
-  authDiv.style.display = 'none';
-  lobbyDiv.style.display = 'flex';
-};
-
-// --- Lobby ---
-function generateCode() {
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
-
-document.getElementById('createGame').onclick = async () => {
-  const code = generateCode();
-  const { data, error } = await supabaseClient.from('games')
-    .insert({ code, player1: currentUser.id, board: board.join(','), turn: 1 })
-    .select().maybeSingle();
-  if (error) return alert(error.message);
-  currentGame = data;
-  playerNumber = 1;
-  showCode.style.display = 'block';
-  gameCode.textContent = code;
-  lobbyDiv.style.display = 'none';
-  gameDiv.style.display = 'flex';
-  boardDiv.style.display = 'none';
-  statusH2.textContent = "En attente d'un adversaire...";
-  pollGame();
-};
-
-document.getElementById('joinGame').onclick = async () => {
-  const code = document.getElementById('joinCode').value.trim().toUpperCase();
-  if (!code) return alert("Entre un code");
-  const { data: game, error } = await supabaseClient.from('games').select().eq('code', code).maybeSingle();
-  if (error || !game) return alert("Code invalide");
-  if (game.player2) return alert("Partie déjà pleine");
-  const { data, error: updErr } = await supabaseClient.from('games')
-    .update({ player2: currentUser.id })
-    .eq('id', game.id)
-    .select().maybeSingle();
-  if (updErr) return alert(updErr.message);
-  currentGame = data;
-  playerNumber = 2;
-  lobbyDiv.style.display = 'none';
-  gameDiv.style.display = 'flex';
-  boardDiv.style.display = 'grid';
-  statusH2.textContent = "C'est à votre adversaire de jouer";
-  pollGame();
-};
-
-// --- Board ---
-function renderBoard() {
-  boardDiv.innerHTML = '';
-  board.forEach((cell, idx) => {
-    const div = document.createElement('div');
-    div.className = 'cell ' + (cell === 1 ? 'player1' : cell === 2 ? 'player2' : '');
-    div.onclick = () => makeMove(idx % 7);
-    boardDiv.appendChild(div);
-  });
-}
-
-async function makeMove(col) {
-  if (!currentGame) return;
-  if (currentGame.winner) return;
-  const isMyTurn = (currentGame.turn === playerNumber);
-  if (!isMyTurn) return;
-  for (let row = 5; row >= 0; row--) {
-    const idx = row * 7 + col;
-    if (board[idx] === 0) {
-      board[idx] = playerNumber;
-      break;
-    }
-  }
-  const winner = checkWinner();
-  const updateData = { board: board.join(','), turn: playerNumber === 1 ? 2 : 1 };
-  if (winner) updateData.winner = winner;
-  const { data, error } = await supabaseClient.from('games')
-    .update(updateData)
-    .eq('id', currentGame.id)
-    .select().maybeSingle();
-  if (error) return alert(error.message);
-  currentGame = data;
-  renderBoard();
-
-  if (winner) await updateElo(winner);
-}
-
-function checkWinner() {
-  const dirs = [[1,0],[0,1],[1,1],[1,-1]];
-  for (let r=0;r<6;r++){
-    for (let c=0;c<7;c++){
-      const idx = r*7+c;
-      const p = board[idx];
-      if (!p) continue;
-      for (const [dx,dy] of dirs){
-        let count=1;
-        for (let i=1;i<4;i++){
-          const nr=r+dy*i, nc=c+dx*i;
-          if(nr<0||nr>5||nc<0||nc>6) break;
-          if(board[nr*7+nc]===p) count++;
-        }
-        if(count>=4) return p;
+    // === Connexion / Inscription ===
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        sessionUser = user;
+        await showGame();
+      } else {
+        authDiv.style.display = "block";
       }
     }
-  }
-  return 0;
-}
 
-async function updateElo(winnerNum) {
-  const { data: g } = await supabaseClient.from('games').select('player1, player2').eq('id', currentGame.id).maybeSingle();
-  const { data: p1 } = await supabaseClient.from('users').select().eq('id', g.player1).maybeSingle();
-  const { data: p2 } = await supabaseClient.from('users').select().eq('id', g.player2).maybeSingle();
+    document.getElementById("signup").onclick = async () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const { error } = await supabase.auth.signUp({ email, password });
+      if (error) alert(error.message); else alert("Compte créé !");
+    };
 
-  if (!p1 || !p2) return;
+    document.getElementById("login").onclick = async () => {
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) alert(error.message); else location.reload();
+    };
 
-  const K = 16;
-  const R1 = p1.elo;
-  const R2 = p2.elo;
-  const expected1 = 1 / (1 + 10 ** ((R2 - R1) / 400));
-  const expected2 = 1 / (1 + 10 ** ((R1 - R2) / 400));
-
-  const S1 = (winnerNum === 1) ? 1 : 0;
-  const S2 = (winnerNum === 2) ? 1 : 0;
-
-  const newElo1 = Math.round(R1 + K * (S1 - expected1));
-  const newElo2 = Math.round(R2 + K * (S2 - expected2));
-
-  await supabaseClient.from('users').update({ elo: newElo1 }).eq('id', p1.id);
-  await supabaseClient.from('users').update({ elo: newElo2 }).eq('id', p2.id);
-
-  if (currentUser.id === p1.id) eloDisplay.textContent = `ELO : ${newElo1}`;
-  if (currentUser.id === p2.id) eloDisplay.textContent = `ELO : ${newElo2}`;
-
-  statusH2.textContent = (winnerNum === playerNumber) ? "🎉 Vous avez gagné !" : "❌ Vous avez perdu !";
-}
-
-// --- Polling ---
-async function pollGame() {
-  if (!currentGame) return;
-  const { data, error } = await supabaseClient.from('games').select().eq('id', currentGame.id).maybeSingle();
-  if (error) return console.error(error);
-  if (data) {
-    currentGame = data;
-    board = currentGame.board ? currentGame.board.split(',').map(Number) : Array(42).fill(0);
-    const bothPlayers = currentGame.player1 && currentGame.player2;
-    if (bothPlayers && !currentGame.winner) {
-      boardDiv.style.display = 'grid';
-      statusH2.textContent = (currentGame.turn === playerNumber) ? "Votre tour" : "Tour de votre adversaire";
+    async function showGame() {
+      authDiv.style.display = "none";
+      gameDiv.style.display = "block";
+      await updateEloDisplay();
     }
-    if (currentGame.winner) {
-      statusH2.textContent = (currentGame.winner === playerNumber) ? "🎉 Vous avez gagné !" : "❌ Vous avez perdu !";
-    }
-    renderBoard();
-  }
-  setTimeout(pollGame, 2000);
-}
-</script>
 
+    async function updateEloDisplay() {
+      const { data } = await supabase.from("users").select("elo").eq("id", sessionUser.id).single();
+      if (data) eloDisplay.innerText = "ELO: " + data.elo;
+    }
+
+    // === Code de partie ===
+    document.getElementById("create").onclick = async () => {
+      gameCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      document.getElementById("showCode").innerText = "Code: " + gameCode;
+
+      await supabase.from("games").insert({
+        code: gameCode,
+        player1: sessionUser.id,
+        state: JSON.stringify(Array(6).fill().map(()=>Array(7).fill(null))),
+        turn: "R"
+      });
+      playerColor = "R";
+      status.innerText = "En attente d’un adversaire...";
+      listenGame();
+    };
+
+    document.getElementById("join").onclick = async () => {
+      const inputCode = document.getElementById("joinCode").value.toUpperCase();
+      const { data: game } = await supabase.from("games").select("*").eq("code", inputCode).single();
+      if (!game) return alert("Code invalide !");
+      await supabase.from("games").update({ player2: sessionUser.id }).eq("code", inputCode);
+      playerColor = "Y";
+      gameCode = inputCode;
+      listenGame();
+    };
+
+    // === Écoute en temps réel ===
+    function listenGame() {
+      supabase.channel("game-" + gameCode)
+        .on("postgres_changes", { event: "*", schema: "public", table: "games", filter: `code=eq.${gameCode}` },
+          payload => {
+            currentGame = payload.new;
+            renderGrid(JSON.parse(currentGame.state));
+            if (currentGame.winner) {
+              handleWinner(currentGame.winner);
+            }
+          })
+        .subscribe();
+
+      loadGame();
+    }
+
+    async function loadGame() {
+      const { data } = await supabase.from("games").select("*").eq("code", gameCode).single();
+      if (data) {
+        currentGame = data;
+        renderGrid(JSON.parse(data.state));
+      }
+    }
+
+    // === Grille ===
+    function renderGrid(state) {
+      grid.innerHTML = "";
+      state.forEach((row, i) => {
+        const tr = document.createElement("tr");
+        row.forEach((cell, j) => {
+          const td = document.createElement("td");
+          if (cell) td.classList.add(cell);
+          td.onclick = () => playMove(j);
+          tr.appendChild(td);
+        });
+        grid.appendChild(tr);
+      });
+    }
+
+    async function playMove(col) {
+      if (!currentGame || currentGame.winner) return;
+      const board = JSON.parse(currentGame.state);
+      for (let i = 5; i >= 0; i--) {
+        if (!board[i][col]) {
+          board[i][col] = playerColor;
+          break;
+        }
+      }
+
+      if (checkWinner(board, playerColor)) {
+        await supabase.from("games").update({
+          state: JSON.stringify(board),
+          winner: playerColor
+        }).eq("code", gameCode);
+      } else {
+        await supabase.from("games").update({
+          state: JSON.stringify(board),
+          turn: playerColor === "R" ? "Y" : "R"
+        }).eq("code", gameCode);
+      }
+    }
+
+    function checkWinner(b, c) {
+      for (let i=0;i<6;i++) for (let j=0;j<7;j++) {
+        if (j+3<7 && b[i][j]==c && b[i][j+1]==c && b[i][j+2]==c && b[i][j+3]==c) return true;
+        if (i+3<6 && b[i][j]==c && b[i+1][j]==c && b[i+2][j]==c && b[i+3][j]==c) return true;
+        if (i+3<6 && j+3<7 && b[i][j]==c && b[i+1][j+1]==c && b[i+2][j+2]==c && b[i+3][j+3]==c) return true;
+        if (i+3<6 && j-3>=0 && b[i][j]==c && b[i+1][j-1]==c && b[i+2][j-2]==c && b[i+3][j-3]==c) return true;
+      }
+      return false;
+    }
+
+    async function handleWinner(color) {
+      status.innerText = color === playerColor ? "🎉 Vous avez gagné !" : "😢 Vous avez perdu...";
+
+      // Récupère les 2 joueurs
+      const { data: game } = await supabase.from("games").select("*").eq("code", gameCode).single();
+      const { data: p1 } = await supabase.from("users").select("id, elo").eq("id", game.player1).single();
+      const { data: p2 } = await supabase.from("users").select("id, elo").eq("id", game.player2).single();
+      if (!p1 || !p2) return;
+
+      const K = 16;
+      const expected1 = 1 / (1 + 10 ** ((p2.elo - p1.elo) / 400));
+      const expected2 = 1 / (1 + 10 ** ((p1.elo - p2.elo) / 400));
+      const S1 = color === "R" ? 1 : 0;
+      const S2 = color === "Y" ? 1 : 0;
+
+      const newElo1 = Math.round(p1.elo + K * (S1 - expected1));
+      const newElo2 = Math.round(p2.elo + K * (S2 - expected2));
+
+      await supabase.from("users").update({ elo: newElo1 }).eq("id", p1.id);
+      await supabase.from("users").update({ elo: newElo2 }).eq("id", p2.id);
+      await updateEloDisplay();
+    }
+
+    init();
+  </script>
 </body>
 </html>
