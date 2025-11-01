@@ -237,45 +237,59 @@ async function makeMove(col) {
   // Check victoire
   if(checkVictory(board, myPlayerNumber)) {
     alert('Vous avez gagné !');
-
-    // récupère l'adversaire
-    const opponentId = myPlayerNumber === 1 ? currentGame.player2 : currentGame.player1;
-    const { data: opponent } = await supabaseClient.from('users').select().eq('id', opponentId).maybeSingle();
-
-    // calcul Elo
-    const newEloMe = calculateElo(currentUser.elo, opponent.elo, 1);
-    const newEloOpponent = calculateElo(opponent.elo, currentUser.elo, 0);
-
-    // update Supabase
-    await supabaseClient.from('users').update({elo:newEloMe}).eq('id', currentUser.id);
-    await supabaseClient.from('users').update({elo:newEloOpponent}).eq('id', opponent.id);
-
-    // update affichage
-    currentUser.elo = newEloMe;
-    userInfo.textContent = `${currentUser.username} | Elo: ${currentUser.elo}`;
-    statusH2.textContent = "Partie terminée ! Vous avez gagné.";
   }
 }
 
+// --- Polling & Mise à jour Elo temps réel ---
 async function pollGame() {
   if(!currentGame) return;
   const { data, error } = await supabaseClient.from('games').select().eq('id', currentGame.id).maybeSingle();
   if(error) return console.error(error);
+
   if(data) {
     currentGame = data;
     board = currentGame.board ? currentGame.board.split(',').map(Number) : Array(42).fill(0);
     const bothPlayers = currentGame.player1 && currentGame.player2;
+
     if(bothPlayers) {
       boardDiv.style.display = 'grid';
       const myPlayerNumber = currentGame.player1 === currentUser.id ? 1 : 2;
-      const yourTurn = (currentGame.turn === 1 && myPlayerNumber === 1) || (currentGame.turn === 2 && myPlayerNumber === 2);
-      statusH2.textContent = yourTurn ? "Votre tour" : "Tour de votre adversaire";
+      const opponentId = myPlayerNumber === 1 ? currentGame.player2 : currentGame.player1;
+      const opponentCellValue = myPlayerNumber === 1 ? 2 : 1;
+
+      // Vérifie victoire
+      if(checkVictory(board, myPlayerNumber)) {
+        statusH2.textContent = "Partie terminée ! Vous avez gagné.";
+        // récupère l'adversaire
+        const { data: opponent } = await supabaseClient.from('users').select().eq('id', opponentId).maybeSingle();
+        const newEloMe = calculateElo(currentUser.elo, opponent.elo, 1);
+        const newEloOpponent = calculateElo(opponent.elo, currentUser.elo, 0);
+        await supabaseClient.from('users').update({elo:newEloMe}).eq('id', currentUser.id);
+        await supabaseClient.from('users').update({elo:newEloOpponent}).eq('id', opponentId);
+        currentUser.elo = newEloMe;
+        userInfo.textContent = `${currentUser.username} | Elo: ${currentUser.elo}`;
+      } else if(checkVictory(board, opponentCellValue)) {
+        statusH2.textContent = "Partie terminée ! Vous avez perdu.";
+        const { data: opponent } = await supabaseClient.from('users').select().eq('id', opponentId).maybeSingle();
+        const newEloMe = calculateElo(currentUser.elo, opponent.elo, 0);
+        const newEloOpponent = calculateElo(opponent.elo, currentUser.elo, 1);
+        await supabaseClient.from('users').update({elo:newEloMe}).eq('id', currentUser.id);
+        await supabaseClient.from('users').update({elo:newEloOpponent}).eq('id', opponentId);
+        currentUser.elo = newEloMe;
+        userInfo.textContent = `${currentUser.username} | Elo: ${currentUser.elo}`;
+      } else {
+        // Partie en cours
+        const yourTurn = (currentGame.turn === 1 && myPlayerNumber === 1) || (currentGame.turn === 2 && myPlayerNumber === 2);
+        statusH2.textContent = yourTurn ? "Votre tour" : "Tour de votre adversaire";
+      }
     } else {
       boardDiv.style.display = 'none';
       statusH2.textContent = "En attente d'un adversaire...";
     }
+
     renderBoard();
   }
+
   setTimeout(pollGame, 2000);
 }
 </script>
