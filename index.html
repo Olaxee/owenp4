@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Puissance 4 - Matchmaking</title>
+<title>Puissance 4 - Matchmaking RPC</title>
 <style>
 body { background:#071128; color:white; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; }
 #auth, #game { margin-top:20px; }
@@ -16,7 +16,7 @@ button { margin:5px; padding:10px; cursor:pointer; }
 </head>
 <body>
 
-<h1>Puissance 4 - Matchmaking</h1>
+<h1>Puissance 4 - Matchmaking RPC</h1>
 
 <div id="auth">
   <input type="text" id="username" placeholder="Nom d'utilisateur">
@@ -72,30 +72,21 @@ function login(){
   });
 }
 
-// --- MATCHMAKING AVEC RPC ATOMIQUE ---
-async function startMatch() {
+// --- MATCHMAKING VIA RPC ---
+async function startMatch(){
   document.getElementById('status').innerText='Recherche d\'adversaire...';
-  try{
-    const { data, error } = await supabase.rpc('join_or_create_match', { uid: currentUser.id });
-    if(error){ 
-      console.log('Erreur matchmaking RPC', error);
-      setTimeout(startMatch, 500); 
-      return;
-    }
 
-    currentMatch = data[0];
-    subscribeMatch(currentMatch.id);
+  const { data, error } = await supabase.rpc('join_or_create_match', { uid: currentUser.id });
+  if(error){ 
+    alert('Erreur matchmaking RPC: '+error.message);
+    return;
+  }
 
-    if(currentMatch.status==='playing' && currentMatch.turn===currentUser.id){
-      document.getElementById('status').innerText="C'est votre tour";
-    } else if(currentMatch.status==='playing'){
-      document.getElementById('status').innerText="Tour de votre adversaire";
-    } else if(currentMatch.status==='waiting'){
-      document.getElementById('status').innerText="En attente d'un adversaire...";
-    }
-  } catch(err){
-    console.log('Erreur matchmaking RPC', err);
-    setTimeout(startMatch, 500);
+  currentMatch = data[0];
+  subscribeMatch(currentMatch.id);
+
+  if(currentMatch.status==='playing' && currentMatch.turn===currentUser.id){
+    document.getElementById('status').innerText="C'est votre tour";
   }
 }
 
