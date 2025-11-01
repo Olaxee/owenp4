@@ -1,21 +1,52 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <title>Puissance 4 Multi</title>
 <style>
-  body { background:#071128; color:white; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; margin:0; }
-  #auth, #game, #lobby { display:none; flex-direction:column; align-items:center; gap:10px; }
+  body {
+    background:#071128;
+    color:white;
+    font-family:sans-serif;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    margin:0;
+  }
+  #auth, #game, #lobby {
+    flex-direction:column;
+    align-items:center;
+    gap:10px;
+  }
   input, button { padding:5px 10px; margin:5px; }
-  #board { display:grid; grid-template-columns:repeat(7,50px); grid-template-rows:repeat(6,50px); gap:5px; }
-  .cell { width:50px; height:50px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; }
+  #board {
+    display:grid;
+    grid-template-columns:repeat(7,50px);
+    grid-template-rows:repeat(6,50px);
+    gap:5px;
+    margin-top:20px;
+  }
+  .cell {
+    width:50px;
+    height:50px;
+    background:#333;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:bold;
+    cursor:pointer;
+  }
   .player1 { background:red; }
   .player2 { background:yellow; }
 </style>
 </head>
 <body>
 
-<div id="auth">
+<div id="auth" style="display:flex;">
   <h2>Connexion / Inscription</h2>
   <input id="username" placeholder="Nom d'utilisateur"/>
   <input id="password" type="password" placeholder="Mot de passe"/>
@@ -23,23 +54,23 @@
   <button id="login">Se connecter</button>
 </div>
 
-<div id="lobby">
+<div id="lobby" style="display:none;">
   <h2>Lobby</h2>
   <button id="createGame">Créer une partie</button>
   <input id="joinCode" placeholder="Code à rejoindre"/>
   <button id="joinGame">Rejoindre la partie</button>
 </div>
 
-<div id="game">
+<div id="game" style="display:none;">
   <h2 id="status">En attente...</h2>
   <div id="board"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const SUPABASE_URL = "https://jyzcgwunvjjnhmjcrfim.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5emNnd3VudmpqbmhtamNyZmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzYzMDMsImV4cCI6MjA3NzUxMjMwM30.O8m8Uao-TTIWbHb65XIBkh7y5GAfTLjwWzFOTFizyYQ";
-  const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const SUPABASE_URL = "TON_SUPABASE_URL";
+  const SUPABASE_ANON_KEY = "TON_SUPABASE_ANON_KEY";
+  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   let currentUser = null;
   let currentGame = null;
@@ -51,12 +82,11 @@
   const boardDiv = document.getElementById('board');
   const statusH2 = document.getElementById('status');
 
-  authDiv.style.display = 'flex';
-
   // --- Auth ---
   document.getElementById('signup').onclick = async () => {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
+    if(!username || !password) return alert('Remplis tous les champs');
     const { data, error } = await supabase.from('users').insert({ username, password });
     if(error) return alert(error.message);
     alert('Inscription réussie ! Connectez-vous.');
@@ -65,7 +95,8 @@
   document.getElementById('login').onclick = async () => {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
-    const { data, error } = await supabase.from('users').select().eq('username', username).eq('password', password).single();
+    if(!username || !password) return alert('Remplis tous les champs');
+    const { data, error } = await supabase.from('users').select().eq('username', username).eq('password', password).maybeSingle();
     if(error || !data) return alert('Identifiants invalides');
     currentUser = data;
     authDiv.style.display = 'none';
@@ -82,7 +113,7 @@
     const { data, error } = await supabase.from('games').insert({
       code,
       player1: currentUser.id
-    }).select().single();
+    }).select().maybeSingle();
     if(error) return alert(error.message);
     currentGame = data;
     lobbyDiv.style.display = 'none';
@@ -94,10 +125,11 @@
 
   document.getElementById('joinGame').onclick = async () => {
     const code = document.getElementById('joinCode').value.toUpperCase();
-    const { data: game, error } = await supabase.from('games').select().eq('code', code).single();
+    if(!code) return alert('Entre un code');
+    const { data: game, error } = await supabase.from('games').select().eq('code', code).maybeSingle();
     if(error || !game) return alert('Code invalide');
     if(game.player2) return alert('Partie déjà complète');
-    const { data, error:update } = await supabase.from('games').update({ player2: currentUser.id }).eq('id', game.id).select().single();
+    const { data, error:update } = await supabase.from('games').update({ player2: currentUser.id }).eq('id', game.id).select().maybeSingle();
     if(update) return alert(update.message);
     currentGame = data;
     lobbyDiv.style.display = 'none';
@@ -121,7 +153,6 @@
     const turnPlayer = currentGame.turn === 1 ? currentGame.player1 : currentGame.player2;
     if(currentUser.id !== turnPlayer) return alert('Ce n\'est pas votre tour !');
 
-    // trouver la première cellule vide de la colonne
     for(let row=5; row>=0; row--) {
       const idx = row*7 + col;
       if(board[idx] === 0) {
@@ -130,36 +161,30 @@
       }
     }
 
-    // update Supabase
     const { data, error } = await supabase.from('games').update({
       board: board.join(','),
       turn: currentGame.turn === 1 ? 2 : 1
-    }).eq('id', currentGame.id).select().single();
+    }).eq('id', currentGame.id).select().maybeSingle();
     if(error) return alert(error.message);
     currentGame = data;
     renderBoard();
-    checkWinner();
-  }
-
-  function checkWinner() {
-    // simple check horizontale/verticale/diagonale (à compléter pour gagner)
   }
 
   async function pollGame() {
     if(!currentGame) return;
-    const { data, error } = await supabase.from('games').select().eq('id', currentGame.id).single();
+    const { data, error } = await supabase.from('games').select().eq('id', currentGame.id).maybeSingle();
     if(error) return console.error(error);
-    currentGame = data;
-    board = currentGame.board.split(',').map(Number);
-    renderBoard();
-    if(currentGame.turn === 1 && currentGame.player1 === currentUser.id || currentGame.turn === 2 && currentGame.player2 === currentUser.id) {
-      statusH2.textContent = 'Votre tour';
-    } else {
-      statusH2.textContent = 'Tour de votre adversaire';
+    if(data) {
+      currentGame = data;
+      board = currentGame.board.split(',').map(Number);
+      renderBoard();
+      const yourTurn = (currentGame.turn === 1 && currentGame.player1 === currentUser.id) ||
+                       (currentGame.turn === 2 && currentGame.player2 === currentUser.id);
+      statusH2.textContent = yourTurn ? 'Votre tour' : 'Tour de votre adversaire';
     }
-    setTimeout(pollGame, 2000); // rafraîchissement toutes les 2s
+    setTimeout(pollGame, 2000);
   }
-
 </script>
+
 </body>
 </html>
