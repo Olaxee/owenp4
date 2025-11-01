@@ -31,8 +31,8 @@ button { margin:5px; padding:10px; cursor:pointer; }
 </div>
 
 <script>
-const supabaseUrl = 'TON_SUPABASE_URL';
-const supabaseKey = 'TON_SUPABASE_ANON_KEY';
+const supabaseUrl = 'https://albdeswcrzcgwnlfcrvm.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsYmRlc3djcnpjZ3dubGZjcnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzI5NzgsImV4cCI6MjA3NzUwODk3OH0.IQqPKCsdexg0mNc4M3uQUgX3QbZXjI7UknyPwDzdSk0';
 const supabase = Supabase.createClient(supabaseUrl, supabaseKey);
 
 let currentUser, opponentUser, currentPlayer = 'red', gridState = Array(6).fill().map(()=>Array(7).fill(null));
