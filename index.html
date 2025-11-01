@@ -79,6 +79,7 @@ async function login(){
 // --- DÉTERMINER LA COULEUR DU JOUEUR ---
 function getPlayerColor(){
   if(!currentMatch) return 'red';
+  if(!currentMatch.player2) return 'red'; // match pas encore commencé
   return currentUser.id === currentMatch.player1 ? 'red' : 'yellow';
 }
 
@@ -115,7 +116,7 @@ function subscribeMatch(matchId){
     const match = payload.new;
     currentMatch = match;
     gridState = match.grid;
-    currentPlayerColor = getPlayerColor(); // ← met à jour la couleur automatiquement
+    currentPlayerColor = getPlayerColor();
     drawGrid();
     updateStatus();
   })
@@ -128,11 +129,12 @@ function updateStatus(){
   if(currentMatch.status==='waiting'){
     document.getElementById('status').innerText="En attente d'un adversaire...";
   } else if(currentMatch.status==='playing'){
-    if(currentMatch.turn === currentUser.id){
-      document.getElementById('status').innerText="C'est votre tour";
-    } else {
-      document.getElementById('status').innerText="Tour de votre adversaire";
+    if(!currentMatch.turn){
+      document.getElementById('status').innerText="En attente du premier tour...";
+      return;
     }
+    document.getElementById('status').innerText = 
+      currentMatch.turn === currentUser.id ? "C'est votre tour" : "Tour de votre adversaire";
   } else if(currentMatch.status==='finished'){
     document.getElementById('status').innerText="Match terminé. Cliquez sur 'Trouver un adversaire' pour rejouer.";
     currentMatch=null;
@@ -162,6 +164,7 @@ function drawGrid(){
 // --- COUP ---
 async function makeMove(col){
   if(!currentMatch || currentMatch.status!=='playing') return;
+  if(!currentMatch.turn) return; // match pas encore commencé
   if(currentMatch.turn !== currentUser.id){ 
     alert("Ce n'est pas votre tour"); 
     return; 
