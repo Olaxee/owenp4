@@ -47,7 +47,7 @@ body {
 </head>
 <body>
 
-<div id="eloDisplay"></div>
+<div id="eloDisplay">Elo : 1000</div>
 
 <div id="auth">
   <h2>Connexion / Inscription</h2>
@@ -77,7 +77,6 @@ const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
 let user = null;
 let currentGame = null;
-let isMyTurn = false;
 let playerColor = null;
 let elo = 1000;
 
@@ -108,16 +107,20 @@ document.getElementById("signup").onclick = async () => {
   showLobby();
 };
 
-// ------------------- UTIL FUNCTIONS -------------------
+// ------------------- UTIL -------------------
 async function ensureUserRow(user) {
   const { data } = await supabaseClient
     .from("users")
-    .select("id")
+    .select("id, elo")
     .eq("id", user.id)
     .maybeSingle();
 
   if (!data) {
-    await supabaseClient.from("users").insert({ id: user.id, elo: 1000 });
+    await supabaseClient.from("users").insert({
+      id: user.id,
+      username: user.email,
+      elo: 1000
+    });
   }
 }
 
@@ -128,7 +131,7 @@ async function loadUserElo() {
     .eq("id", user.id)
     .single();
   if (error) console.error(error);
-  if (data?.elo != null) elo = Number(data.elo); // <--- FORCE NUMBER
+  if (data?.elo != null) elo = Number(data.elo);
   document.getElementById("eloDisplay").innerText = `Elo : ${elo}`;
 }
 
@@ -199,20 +202,21 @@ function renderGrid() {
 }
 
 async function playTurn(col) {
-  // Simulation pour test : win / lose aléatoire
+  // Pour test : simulateur win/lose aléatoire
   const result = Math.random() > 0.5 ? "win" : "lose";
   await updateEloAfterMatch(result);
 }
 
 async function updateEloAfterMatch(result) {
   const advId = (currentGame.host === user.id) ? currentGame.guest : currentGame.host;
-  const { data: advData } = await supabaseClient
+  const { data: advData, error: advError } = await supabaseClient
     .from("users")
     .select("elo")
     .eq("id", advId)
     .single();
-  const advElo = Number(advData?.elo ?? 1000); // <--- FORCE NUMBER
+  if (advError || !advData) return console.error("Erreur get adv elo:", advError);
 
+  const advElo = Number(advData.elo);
   const S = result === "win" ? 1 : result === "lose" ? 0 : 0.5;
   const newElo = Number(elo) + 16 * (S - (1 / (1 + 10 ** ((advElo - Number(elo)) / 400))));
   await saveUserElo(newElo);
