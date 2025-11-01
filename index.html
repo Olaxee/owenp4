@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -32,9 +33,9 @@ button { margin:5px; padding:10px; cursor:pointer; }
 </div>
 
 <script>
-window.supabaseUrl = 'https://albdeswcrzcgwnlfcrvm.supabase.co';
-window.supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsYmRlc3djcnpjZ3dubGZjcnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzI5NzgsImV4cCI6MjA3NzUwODk3OH0.IQqPKCsdexg0mNc4M3uQUgX3QbZXjI7UknyPwDzdSk0';
-window.supabase = supabase.createClient(window.supabaseUrl, window.supabaseKey);
+const supabaseUrl = 'https://albdeswcrzcgwnlfcrvm.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsYmRlc3djcnpjZ3dubGZjcnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzI5NzgsImV4cCI6MjA3NzUwODk3OH0.IQqPKCsdexg0mNc4M3uQUgX3QbZXjI7UknyPwDzdSk0';
+const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 let currentUser = null;
 let currentMatch = null;
@@ -47,7 +48,7 @@ function register(){
   const password = document.getElementById('password').value.trim();
   if(!username || !password){ alert('Remplissez tous les champs'); return; }
 
-  window.supabase.from('users').insert([{ username, password, elo:1000 }])
+  supabase.from('users').insert([{ username, password, elo:1000 }])
   .then(({data, error})=>{
     if(error){ alert('Erreur: '+error.message); return; }
     alert('Inscription réussie ! Vous pouvez maintenant vous connecter.');
@@ -60,7 +61,7 @@ function login(){
   const password = document.getElementById('password').value.trim();
   if(!username || !password){ alert('Remplissez tous les champs'); return; }
 
-  window.supabase.from('users').select('*').eq('username', username).eq('password', password).limit(1)
+  supabase.from('users').select('*').eq('username', username).eq('password', password).limit(1)
   .then(({data, error})=>{
     if(error){ alert('Erreur: '+error.message); return; }
     if(data.length===0){ alert('Nom d\'utilisateur ou mot de passe incorrect'); return; }
@@ -72,38 +73,29 @@ function login(){
   });
 }
 
-// --- MATCHMAKING CORRIGÉ AVEC RETRY AUTOMATIQUE ---
+// --- MATCHMAKING AVEC RETRY AUTOMATIQUE ---
 async function startMatch(){
   document.getElementById('status').innerText='Recherche d\'adversaire...';
 
-  // Cherche un match en attente
   let { data: waitingMatches, error: err1 } = await supabase
     .from('matches')
     .select('*')
     .eq('status','waiting')
     .limit(1);
 
-  if(err1){ alert('Erreur matchmaking'); return; }
+  if(err1){ console.log('Erreur matchmaking:', err1); setTimeout(startMatch, 500); return; }
 
   if(waitingMatches.length>0){
     const matchToJoin = waitingMatches[0];
 
-    // Essaye de rejoindre le match si personne ne l’a déjà pris
     let { data, error } = await supabase
       .from('matches')
       .update({ player2: currentUser.id, status:'playing', turn: matchToJoin.player1 })
       .eq('id', matchToJoin.id)
       .eq('player2', null);
 
-    if(error){
-      console.log('Erreur join:', error);
+    if(error || data.length===0){
       setTimeout(startMatch, 500); // réessayer automatiquement
-      return;
-    }
-
-    if(data.length===0){
-      // Quelqu’un a déjà pris le match → réessayer
-      setTimeout(startMatch, 500);
       return;
     }
 
@@ -111,14 +103,13 @@ async function startMatch(){
     subscribeMatch(currentMatch.id);
 
   } else {
-    // Créer un nouveau match
     const { data:newMatch, error:newErr } = await supabase
       .from('matches')
       .insert([{ player1: currentUser.id, status:'waiting', grid:gridState }])
       .select()
       .single();
 
-    if(newErr){ alert('Erreur création match'); return; }
+    if(newErr){ console.log('Erreur création match:', newErr); setTimeout(startMatch, 500); return; }
 
     currentMatch = newMatch;
     subscribeMatch(currentMatch.id);
@@ -127,7 +118,7 @@ async function startMatch(){
 
 // --- SUBSCRIBE MATCH ---
 function subscribeMatch(matchId){
-  window.supabase.channel('public:matches')
+  supabase.channel('public:matches')
   .on('postgres_changes',{event:'UPDATE',schema:'public',table:'matches',filter:`id=eq.${matchId}`},payload=>{
     const match = payload.new;
     currentMatch = match;
@@ -178,7 +169,7 @@ function makeMove(col){
         endMatch();
       } else {
         const nextTurn = currentUser.id===currentMatch.player1 ? currentMatch.player2 : currentMatch.player1;
-        window.supabase.from('matches').update({grid:gridState, turn:nextTurn}).eq('id',currentMatch.id);
+        supabase.from('matches').update({grid:gridState, turn:nextTurn}).eq('id',currentMatch.id);
       }
       return;
     }
@@ -200,7 +191,7 @@ function checkWin(player){
 
 // --- FIN DU MATCH ---
 function endMatch(){
-  if(currentMatch) window.supabase.from('matches').update({status:'finished'}).eq('id',currentMatch.id);
+  if(currentMatch) supabase.from('matches').update({status:'finished'}).eq('id',currentMatch.id);
   currentMatch=null;
   gridState=Array(6).fill().map(()=>Array(7).fill(null));
   drawGrid();
