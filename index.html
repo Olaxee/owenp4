@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Puissance 4 Multi - Elo</title>
+<title>Puissance 4 - Elo</title>
 <style>
   body {
     background:#071128;
@@ -40,18 +40,21 @@
   }
   .player1 { background:red; }
   .player2 { background:yellow; }
-  #elo {
-    position:absolute;
+  #eloDisplay {
+    position:fixed;
     top:10px;
     right:20px;
-    font-size:18px;
-    color:#ffcc00;
+    font-weight:bold;
+    background:#0a1744;
+    padding:8px 14px;
+    border-radius:10px;
+    box-shadow:0 0 5px rgba(255,255,255,0.2);
   }
 </style>
 </head>
 <body>
 
-<div id="elo" style="display:none;">Elo : <span id="eloValue">1000</span></div>
+<div id="eloDisplay" style="display:none;">Elo: 1000</div>
 
 <!-- Connexion -->
 <div id="auth" style="display:flex;">
@@ -81,13 +84,11 @@
 <script>
   const SUPABASE_URL = "https://jyzcgwunvjjnhmjcrfim.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5emNnd3VudmpqbmhtamNyZmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzYzMDMsImV4cCI6MjA3NzUxMjMwM30.O8m8Uao-TTIWbHb65XIBkh7y5GAfTLjwWzFOTFizyYQ";
-
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   let currentUser = null;
   let currentGame = null;
   let board = Array(42).fill(0);
-  let gameOver = false;
 
   const authDiv = document.getElementById('auth');
   const lobbyDiv = document.getElementById('lobby');
@@ -96,8 +97,7 @@
   const statusH2 = document.getElementById('status');
   const showCode = document.getElementById('showCode');
   const gameCode = document.getElementById('gameCode');
-  const eloDiv = document.getElementById('elo');
-  const eloValue = document.getElementById('eloValue');
+  const eloDisplay = document.getElementById('eloDisplay');
 
   const usernameInput = document.getElementById('username');
   const passwordInput = document.getElementById('password');
@@ -122,11 +122,15 @@
       .maybeSingle();
     if(error || !data) return alert('Identifiants invalides');
     currentUser = data;
+    updateEloDisplay(currentUser.elo);
     authDiv.style.display = 'none';
     lobbyDiv.style.display = 'flex';
-    eloDiv.style.display = 'block';
-    eloValue.textContent = currentUser.elo ?? 1000;
   };
+
+  function updateEloDisplay(elo) {
+    eloDisplay.style.display = 'block';
+    eloDisplay.textContent = `Elo: ${elo}`;
+  }
 
   // --- Lobby ---
   function generateCode() {
@@ -136,13 +140,13 @@
   document.getElementById('createGame').onclick = async () => {
     const code = generateCode();
     const { data, error } = await supabaseClient.from('games')
-      .insert({ code, player1: currentUser.id, board: board.join(','), turn: 1, winner: null })
-      .select()
-      .maybeSingle();
+      .insert({ code, player1: currentUser.id, board: board.join(','), turn: 1 })
+      .select().maybeSingle();
     if(error) return alert(error.message);
     currentGame = data;
     showCode.style.display = 'block';
     gameCode.textContent = code;
+    lobbyDiv.style.display = 'flex';
     gameDiv.style.display = 'flex';
     boardDiv.style.display = 'none';
     statusH2.textContent = "En attente d'un adversaire...";
@@ -158,8 +162,7 @@
     const { data, error:update } = await supabaseClient.from('games')
       .update({ player2: currentUser.id })
       .eq('id', game.id)
-      .select()
-      .maybeSingle();
+      .select().maybeSingle();
     if(update) return alert(update.message);
     currentGame = data;
     lobbyDiv.style.display = 'none';
@@ -180,20 +183,24 @@
     });
   }
 
-  function checkWin(player) {
-    const dirs = [1,7,6,8];
-    for(let i=0;i<42;i++){
-      if(board[i]!==player) continue;
-      for(let d of dirs){
-        if(board[i+d]===player && board[i+2*d]===player && board[i+3*d]===player)
-          return true;
-      }
+  function checkWinner() {
+    const lines = [];
+    for(let r=0;r<6;r++)for(let c=0;c<7;c++){
+      const idx=r*7+c;
+      if(c<=3) lines.push([idx,idx+1,idx+2,idx+3]);
+      if(r<=2) lines.push([idx,idx+7,idx+14,idx+21]);
+      if(c<=3&&r<=2) lines.push([idx,idx+8,idx+16,idx+24]);
+      if(c>=3&&r<=2) lines.push([idx,idx+6,idx+12,idx+18]);
     }
-    return false;
+    for(const l of lines){
+      const [a,b,c,d]=l;
+      if(board[a]&&board[a]===board[b]&&board[a]===board[c]&&board[a]===board[d]) return board[a];
+    }
+    return board.every(v=>v!==0)?3:0;
   }
 
   async function makeMove(col) {
-    if(!currentGame || gameOver) return;
+    if(!currentGame) return;
     const turnPlayer = currentGame.turn === 1 ? currentGame.player1 : currentGame.player2;
     if(currentUser.id !== turnPlayer) return;
     for(let row = 5; row >= 0; row--) {
@@ -203,46 +210,51 @@
         break;
       }
     }
+    const winner = checkWinner();
+    const nextTurn = currentGame.turn === 1 ? 2 : 1;
 
-    if(checkWin(currentGame.turn)) {
-      gameOver = true;
-      await supabaseClient.from('games').update({ board: board.join(','), winner: currentUser.id }).eq('id', currentGame.id);
-      await updateElo(currentGame.turn);
-      statusH2.textContent = "Victoire !";
-      return renderBoard();
-    }
+    let updateData = { board: board.join(','), turn: nextTurn };
+    if(winner) updateData.winner = winner;
 
     const { data, error } = await supabaseClient.from('games')
-      .update({ board: board.join(','), turn: currentGame.turn === 1 ? 2 : 1 })
+      .update(updateData)
       .eq('id', currentGame.id)
-      .select()
-      .maybeSingle();
+      .select().maybeSingle();
     if(error) return alert(error.message);
     currentGame = data;
     renderBoard();
+    if(winner) handleEndGame(winner);
   }
 
-  async function updateElo(winnerTurn) {
-    const game = currentGame;
-    const { data: p1 } = await supabaseClient.from('users').select().eq('id', game.player1).maybeSingle();
-    const { data: p2 } = await supabaseClient.from('users').select().eq('id', game.player2).maybeSingle();
-    if(!p1 || !p2) return;
+  async function handleEndGame(winner) {
+    let resultMsg;
+    if(winner === 3) resultMsg = "Égalité !";
+    else resultMsg = (winner === 1 && currentUser.id === currentGame.player1) || (winner === 2 && currentUser.id === currentGame.player2)
+      ? "Vous avez gagné !" : "Vous avez perdu...";
 
-    const K = 16;
-    function expected(Ra, Rb){ return 1/(1+10**((Rb-Ra)/400)); }
+    statusH2.textContent = resultMsg;
+    boardDiv.style.pointerEvents = 'none';
 
-    let Sa1=0.5, Sa2=0.5; // égalité
-    if(winnerTurn===1){ Sa1=1; Sa2=0; }
-    else if(winnerTurn===2){ Sa1=0; Sa2=1; }
+    if(winner === 3) return;
 
-    const R1new = Math.round(p1.elo + K * (Sa1 - expected(p1.elo, p2.elo)));
-    const R2new = Math.round(p2.elo + K * (Sa2 - expected(p2.elo, p1.elo)));
+    const { data: player1 } = await supabaseClient.from('users').select().eq('id', currentGame.player1).maybeSingle();
+    const { data: player2 } = await supabaseClient.from('users').select().eq('id', currentGame.player2).maybeSingle();
 
-    await supabaseClient.from('users').update({ elo:R1new }).eq('id', p1.id);
-    await supabaseClient.from('users').update({ elo:R2new }).eq('id', p2.id);
+    const R1 = player1.elo, R2 = player2.elo;
+    const S1 = (winner === 1 ? 1 : 0);
+    const S2 = 1 - S1;
 
-    if(currentUser.id===p1.id) eloValue.textContent = R1new;
-    if(currentUser.id===p2.id) eloValue.textContent = R2new;
+    const E1 = 1 / (1 + 10 ** ((R2 - R1)/400));
+    const E2 = 1 / (1 + 10 ** ((R1 - R2)/400));
+
+    const newR1 = Math.round(R1 + 16 * (S1 - E1));
+    const newR2 = Math.round(R2 + 16 * (S2 - E2));
+
+    await supabaseClient.from('users').update({ elo: newR1 }).eq('id', player1.id);
+    await supabaseClient.from('users').update({ elo: newR2 }).eq('id', player2.id);
+
+    if(currentUser.id === player1.id) updateEloDisplay(newR1);
+    if(currentUser.id === player2.id) updateEloDisplay(newR2);
   }
 
   async function pollGame() {
@@ -253,19 +265,16 @@
       currentGame = data;
       board = currentGame.board ? currentGame.board.split(',').map(Number) : Array(42).fill(0);
       const bothPlayers = currentGame.player1 && currentGame.player2;
-      if(bothPlayers && !gameOver) {
+      if(bothPlayers) {
         boardDiv.style.display = 'grid';
-        if(currentGame.winner) {
-          gameOver = true;
-          statusH2.textContent = currentGame.winner === currentUser.id ? "Victoire !" : "Défaite...";
-          await updateElo(currentGame.turn);
-        } else {
-          const yourTurn = (currentGame.turn === 1 && currentGame.player1 === currentUser.id) ||
-                           (currentGame.turn === 2 && currentGame.player2 === currentUser.id);
-          statusH2.textContent = yourTurn ? "Votre tour" : "Tour de votre adversaire";
-        }
+        statusH2.textContent =
+          (currentGame.turn === 1 && currentGame.player1 === currentUser.id) ||
+          (currentGame.turn === 2 && currentGame.player2 === currentUser.id)
+            ? "Votre tour"
+            : "Tour de votre adversaire";
       }
       renderBoard();
+      if(currentGame.winner) handleEndGame(currentGame.winner);
     }
     setTimeout(pollGame, 2000);
   }
