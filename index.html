@@ -72,7 +72,7 @@ function login(){
   });
 }
 
-// --- MATCHMAKING CORRIGÉ ---
+// --- MATCHMAKING CORRIGÉ AVEC RETRY AUTOMATIQUE ---
 async function startMatch(){
   document.getElementById('status').innerText='Recherche d\'adversaire...';
 
@@ -93,13 +93,17 @@ async function startMatch(){
       .from('matches')
       .update({ player2: currentUser.id, status:'playing', turn: matchToJoin.player1 })
       .eq('id', matchToJoin.id)
-      .eq('player2', null); // ✅ condition atomique
+      .eq('player2', null);
 
-    if(error){ alert('Erreur lors de la jonction'); return; }
+    if(error){
+      console.log('Erreur join:', error);
+      setTimeout(startMatch, 500); // réessayer automatiquement
+      return;
+    }
 
     if(data.length===0){
-      // Si quelqu’un a déjà pris le match, relancer la recherche
-      startMatch();
+      // Quelqu’un a déjà pris le match → réessayer
+      setTimeout(startMatch, 500);
       return;
     }
 
@@ -171,7 +175,6 @@ function makeMove(col){
 
       if(checkWin(currentPlayerColor)){
         alert(currentPlayerColor==='red' ? 'Vous gagnez!' : 'Vous perdez!');
-        updateElo(currentPlayerColor==='red');
         endMatch();
       } else {
         const nextTurn = currentUser.id===currentMatch.player1 ? currentMatch.player2 : currentMatch.player1;
@@ -193,12 +196,6 @@ function checkWin(player){
     }
   }
   return false;
-}
-
-// --- UPDATE ELO (simplifié) ---
-function updateElo(won){
-  // Pour l'instant Elo par défaut
-  console.log("Mettre à jour Elo ici si nécessaire");
 }
 
 // --- FIN DU MATCH ---
