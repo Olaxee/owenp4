@@ -110,8 +110,7 @@ document.getElementById("signup").onclick = async () => {
 
 // ------------------- UTIL FUNCTIONS -------------------
 async function ensureUserRow(user) {
-  // Vérifie si l'utilisateur existe dans table users
-  const { data, error } = await supabaseClient
+  const { data } = await supabaseClient
     .from("users")
     .select("id")
     .eq("id", user.id)
@@ -129,8 +128,8 @@ async function loadUserElo() {
     .eq("id", user.id)
     .single();
   if (error) console.error(error);
-  if (data?.elo) elo = data.elo;
-  document.getElementById("eloDisplay").innerText = `Elo : ${Math.round(elo)}`;
+  if (data?.elo != null) elo = Number(data.elo); // <--- FORCE NUMBER
+  document.getElementById("eloDisplay").innerText = `Elo : ${elo}`;
 }
 
 async function saveUserElo(newElo) {
@@ -212,10 +211,10 @@ async function updateEloAfterMatch(result) {
     .select("elo")
     .eq("id", advId)
     .single();
-  const advElo = advData?.elo ?? 1000;
+  const advElo = Number(advData?.elo ?? 1000); // <--- FORCE NUMBER
 
   const S = result === "win" ? 1 : result === "lose" ? 0 : 0.5;
-  const newElo = elo + 16 * (S - (1 / (1 + 10 ** ((advElo - elo) / 400))));
+  const newElo = Number(elo) + 16 * (S - (1 / (1 + 10 ** ((advElo - Number(elo)) / 400))));
   await saveUserElo(newElo);
 
   document.getElementById("turnInfo").innerText =
