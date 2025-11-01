@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Puissance 4 Matchmaking & Elo</title>
+<title>Puissance 4 - Matchmaking & Elo</title>
 <style>
 body { background:#071128; color:white; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; }
 #auth, #game { margin-top:20px; }
@@ -32,37 +33,42 @@ button { margin:5px; padding:10px; cursor:pointer; }
 </div>
 
 <script>
-const supabaseUrl = 'TON_SUPABASE_URL';
-const supabaseKey = 'TON_SUPABASE_ANON_KEY';
-const supabase = Supabase.createClient(supabaseUrl, supabaseKey);
+const supabaseUrl = 'https://albdeswcrzcgwnlfcrvm.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsYmRlc3djcnpjZ3dubGZjcnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzI5NzgsImV4cCI6MjA3NzUwODk3OH0.IQqPKCsdexg0mNc4M3uQUgX3QbZXjI7UknyPwDzdSk0';
+const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
 let currentUser, opponentUser, currentPlayer = 'red', gridState = Array(6).fill().map(()=>Array(7).fill(null));
 
-// Register function
+// Fonction d'inscription
 async function register(){
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value.trim();
   if(!username || !password){ alert('Remplissez tous les champs'); return; }
-  const { data, error } = await supabase.from('users').insert([{ username, password }]);
+
+  const { data: existing } = await supabase.from('users').select('id').eq('username', username);
+  if(existing.length > 0){ alert('Utilisateur déjà existant'); return; }
+
+  const { data, error } = await supabase.from('users').insert([{ username, password, elo: 1000 }]);
   if(error){ alert('Erreur: ' + error.message); return; }
   alert('Inscription réussie ! Vous pouvez maintenant vous connecter.');
 }
 
-// Login function
-async function login() {
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
-  let { data, error } = await supabase.from('users').select('*').eq('username', username).eq('password', password).limit(1);
-  if(data.length === 0){
-    alert('Utilisateur inconnu ou mot de passe incorrect.');
-    return;
-  }
+// Fonction de connexion
+async function login(){
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value.trim();
+  if(!username || !password){ alert('Remplissez tous les champs'); return; }
+
+  const { data, error } = await supabase.from('users').select('*').eq('username', username).eq('password', password).limit(1);
+  if(error){ alert('Erreur: ' + error.message); return; }
+  if(data.length === 0){ alert('Nom d\'utilisateur ou mot de passe incorrect'); return; }
+
   currentUser = data[0];
   document.getElementById('auth').style.display = 'none';
   document.getElementById('game').style.display = 'block';
 }
 
-// Start matchmaking
+// Démarrer le matchmaking
 async function startMatch() {
   document.getElementById('status').innerText = 'Recherche d\'adversaire...';
   let { data: potential, error } = await supabase.from('users').select('*').neq('id', currentUser.id).order('elo', { ascending:true }).limit(1);
@@ -75,7 +81,7 @@ async function startMatch() {
   drawGrid();
 }
 
-// Draw grid
+// Dessiner la grille
 function drawGrid(){
   const grid = document.getElementById('grid');
   grid.innerHTML = '';
@@ -92,7 +98,7 @@ function drawGrid(){
   }
 }
 
-// Make move
+// Jouer un coup
 function makeMove(col){
   for(let r=5;r>=0;r--){
     if(!gridState[r][col]){
@@ -109,7 +115,7 @@ function makeMove(col){
   }
 }
 
-// Check win
+// Vérifier une victoire
 function checkWin(player){
   for(let r=0;r<6;r++){
     for(let c=0;c<7;c++){
@@ -122,7 +128,7 @@ function checkWin(player){
   return false;
 }
 
-// Update Elo
+// Mettre à jour le Elo
 async function updateElo(won){
   const S = won ? 1 : 0;
   const Ryou = currentUser.elo;
@@ -131,7 +137,7 @@ async function updateElo(won){
   await supabase.from('users').update({ elo: Math.round(Rnew) }).eq('id', currentUser.id);
 }
 
-// Reset game
+// Réinitialiser la partie
 function resetGame(){
   gridState = Array(6).fill().map(()=>Array(7).fill(null));
   drawGrid();
