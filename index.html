@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Puissance 4 Multi</title>
+<title>Puissance 4 Multi - Elo</title>
 <style>
   body {
     background:#071128;
@@ -40,9 +40,18 @@
   }
   .player1 { background:red; }
   .player2 { background:yellow; }
+  #elo {
+    position:absolute;
+    top:10px;
+    right:20px;
+    font-size:18px;
+    color:#ffcc00;
+  }
 </style>
 </head>
 <body>
+
+<div id="elo" style="display:none;">Elo : <span id="eloValue">1000</span></div>
 
 <!-- Connexion -->
 <div id="auth" style="display:flex;">
@@ -78,6 +87,7 @@
   let currentUser = null;
   let currentGame = null;
   let board = Array(42).fill(0);
+  let gameOver = false;
 
   const authDiv = document.getElementById('auth');
   const lobbyDiv = document.getElementById('lobby');
@@ -86,13 +96,18 @@
   const statusH2 = document.getElementById('status');
   const showCode = document.getElementById('showCode');
   const gameCode = document.getElementById('gameCode');
+  const eloDiv = document.getElementById('elo');
+  const eloValue = document.getElementById('eloValue');
+
+  const usernameInput = document.getElementById('username');
+  const passwordInput = document.getElementById('password');
 
   // --- Auth ---
   document.getElementById('signup').onclick = async () => {
     const username = usernameInput.value.trim();
     const password = passwordInput.value.trim();
     if(!username || !password) return alert('Remplis tous les champs');
-    const { error } = await supabaseClient.from('users').insert({ username, password });
+    const { error } = await supabaseClient.from('users').insert({ username, password, elo:1000 });
     if(error) return alert(error.message);
     alert('Inscription réussie ! Connectez-vous.');
   };
@@ -109,10 +124,9 @@
     currentUser = data;
     authDiv.style.display = 'none';
     lobbyDiv.style.display = 'flex';
+    eloDiv.style.display = 'block';
+    eloValue.textContent = currentUser.elo ?? 1000;
   };
-
-  const usernameInput = document.getElementById('username');
-  const passwordInput = document.getElementById('password');
 
   // --- Lobby ---
   function generateCode() {
@@ -122,14 +136,13 @@
   document.getElementById('createGame').onclick = async () => {
     const code = generateCode();
     const { data, error } = await supabaseClient.from('games')
-      .insert({ code, player1: currentUser.id, board: board.join(','), turn: 1 })
+      .insert({ code, player1: currentUser.id, board: board.join(','), turn: 1, winner: null })
       .select()
       .maybeSingle();
     if(error) return alert(error.message);
     currentGame = data;
     showCode.style.display = 'block';
     gameCode.textContent = code;
-    lobbyDiv.style.display = 'flex';
     gameDiv.style.display = 'flex';
     boardDiv.style.display = 'none';
     statusH2.textContent = "En attente d'un adversaire...";
@@ -167,8 +180,20 @@
     });
   }
 
+  function checkWin(player) {
+    const dirs = [1,7,6,8];
+    for(let i=0;i<42;i++){
+      if(board[i]!==player) continue;
+      for(let d of dirs){
+        if(board[i+d]===player && board[i+2*d]===player && board[i+3*d]===player)
+          return true;
+      }
+    }
+    return false;
+  }
+
   async function makeMove(col) {
-    if(!currentGame) return;
+    if(!currentGame || gameOver) return;
     const turnPlayer = currentGame.turn === 1 ? currentGame.player1 : currentGame.player2;
     if(currentUser.id !== turnPlayer) return;
     for(let row = 5; row >= 0; row--) {
@@ -178,6 +203,15 @@
         break;
       }
     }
+
+    if(checkWin(currentGame.turn)) {
+      gameOver = true;
+      await supabaseClient.from('games').update({ board: board.join(','), winner: currentUser.id }).eq('id', currentGame.id);
+      await updateElo(currentGame.turn);
+      statusH2.textContent = "Victoire !";
+      return renderBoard();
+    }
+
     const { data, error } = await supabaseClient.from('games')
       .update({ board: board.join(','), turn: currentGame.turn === 1 ? 2 : 1 })
       .eq('id', currentGame.id)
@@ -188,6 +222,29 @@
     renderBoard();
   }
 
+  async function updateElo(winnerTurn) {
+    const game = currentGame;
+    const { data: p1 } = await supabaseClient.from('users').select().eq('id', game.player1).maybeSingle();
+    const { data: p2 } = await supabaseClient.from('users').select().eq('id', game.player2).maybeSingle();
+    if(!p1 || !p2) return;
+
+    const K = 16;
+    function expected(Ra, Rb){ return 1/(1+10**((Rb-Ra)/400)); }
+
+    let Sa1=0.5, Sa2=0.5; // égalité
+    if(winnerTurn===1){ Sa1=1; Sa2=0; }
+    else if(winnerTurn===2){ Sa1=0; Sa2=1; }
+
+    const R1new = Math.round(p1.elo + K * (Sa1 - expected(p1.elo, p2.elo)));
+    const R2new = Math.round(p2.elo + K * (Sa2 - expected(p2.elo, p1.elo)));
+
+    await supabaseClient.from('users').update({ elo:R1new }).eq('id', p1.id);
+    await supabaseClient.from('users').update({ elo:R2new }).eq('id', p2.id);
+
+    if(currentUser.id===p1.id) eloValue.textContent = R1new;
+    if(currentUser.id===p2.id) eloValue.textContent = R2new;
+  }
+
   async function pollGame() {
     if(!currentGame) return;
     const { data, error } = await supabaseClient.from('games').select().eq('id', currentGame.id).maybeSingle();
@@ -196,13 +253,17 @@
       currentGame = data;
       board = currentGame.board ? currentGame.board.split(',').map(Number) : Array(42).fill(0);
       const bothPlayers = currentGame.player1 && currentGame.player2;
-      if(bothPlayers) {
+      if(bothPlayers && !gameOver) {
         boardDiv.style.display = 'grid';
-        statusH2.textContent =
-          (currentGame.turn === 1 && currentGame.player1 === currentUser.id) ||
-          (currentGame.turn === 2 && currentGame.player2 === currentUser.id)
-            ? "Votre tour"
-            : "Tour de votre adversaire";
+        if(currentGame.winner) {
+          gameOver = true;
+          statusH2.textContent = currentGame.winner === currentUser.id ? "Victoire !" : "Défaite...";
+          await updateElo(currentGame.turn);
+        } else {
+          const yourTurn = (currentGame.turn === 1 && currentGame.player1 === currentUser.id) ||
+                           (currentGame.turn === 2 && currentGame.player2 === currentUser.id);
+          statusH2.textContent = yourTurn ? "Votre tour" : "Tour de votre adversaire";
+        }
       }
       renderBoard();
     }
