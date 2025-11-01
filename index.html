@@ -72,26 +72,53 @@ function login(){
   });
 }
 
-// --- MATCHMAKING ---
-function startMatch(){
+// --- MATCHMAKING CORRIGÉ ---
+async function startMatch(){
   document.getElementById('status').innerText='Recherche d\'adversaire...';
+
   // Cherche un match en attente
-  window.supabase.from('matches').select('*').eq('status','waiting').limit(1)
-  .then(async ({data,error})=>{
-    if(error){ alert('Erreur matchmaking'); return; }
-    if(data.length>0){
-      // Rejoindre le match existant
-      currentMatch = data[0];
-      await window.supabase.from('matches').update({player2:currentUser.id,status:'playing',turn:currentMatch.player1}).eq('id',currentMatch.id);
-      subscribeMatch(currentMatch.id);
-    } else {
-      // Créer un nouveau match
-      const {data:newMatch, error:newErr} = await window.supabase.from('matches').insert([{player1:currentUser.id,status:'waiting',grid:gridState}]).select().single();
-      if(newErr){ alert('Erreur création match'); return; }
-      currentMatch = newMatch;
-      subscribeMatch(currentMatch.id);
+  let { data: waitingMatches, error: err1 } = await supabase
+    .from('matches')
+    .select('*')
+    .eq('status','waiting')
+    .limit(1);
+
+  if(err1){ alert('Erreur matchmaking'); return; }
+
+  if(waitingMatches.length>0){
+    const matchToJoin = waitingMatches[0];
+
+    // Essaye de rejoindre le match si personne ne l’a déjà pris
+    let { data, error } = await supabase
+      .from('matches')
+      .update({ player2: currentUser.id, status:'playing', turn: matchToJoin.player1 })
+      .eq('id', matchToJoin.id)
+      .eq('player2', null); // ✅ condition atomique
+
+    if(error){ alert('Erreur lors de la jonction'); return; }
+
+    if(data.length===0){
+      // Si quelqu’un a déjà pris le match, relancer la recherche
+      startMatch();
+      return;
     }
-  });
+
+    currentMatch = data[0];
+    subscribeMatch(currentMatch.id);
+
+  } else {
+    // Créer un nouveau match
+    const { data:newMatch, error:newErr } = await supabase
+      .from('matches')
+      .insert([{ player1: currentUser.id, status:'waiting', grid:gridState }])
+      .select()
+      .single();
+
+    if(newErr){ alert('Erreur création match'); return; }
+
+    currentMatch = newMatch;
+    subscribeMatch(currentMatch.id);
+  }
 }
 
 // --- SUBSCRIBE MATCH ---
@@ -102,10 +129,14 @@ function subscribeMatch(matchId){
     currentMatch = match;
     gridState = match.grid;
     drawGrid();
-    if(match.turn === currentUser.id){
-      document.getElementById('status').innerText="C'est votre tour";
-    } else {
-      document.getElementById('status').innerText=`Tour de votre adversaire`;
+    if(match.status==='playing'){
+      if(match.turn === currentUser.id){
+        document.getElementById('status').innerText="C'est votre tour";
+      } else {
+        document.getElementById('status').innerText="Tour de votre adversaire";
+      }
+    } else if(match.status==='finished'){
+      document.getElementById('status').innerText="Match terminé. Cliquez sur 'Trouver un adversaire' pour rejouer.";
     }
   })
   .subscribe();
@@ -130,22 +161,21 @@ function drawGrid(){
 
 // --- COUP ---
 function makeMove(col){
-  if(!currentMatch) return;
+  if(!currentMatch || currentMatch.status!=='playing') return;
   if(currentMatch.turn !== currentUser.id){ alert("Ce n'est pas votre tour"); return; }
 
   for(let r=5;r>=0;r--){
     if(!gridState[r][col]){
       gridState[r][col] = currentPlayerColor;
       drawGrid();
-      // Vérifie victoire
+
       if(checkWin(currentPlayerColor)){
         alert(currentPlayerColor==='red' ? 'Vous gagnez!' : 'Vous perdez!');
         updateElo(currentPlayerColor==='red');
         endMatch();
       } else {
-        // Change tour
         const nextTurn = currentUser.id===currentMatch.player1 ? currentMatch.player2 : currentMatch.player1;
-        window.supabase.from('matches').update({grid:gridState,turn:nextTurn}).eq('id',currentMatch.id);
+        window.supabase.from('matches').update({grid:gridState, turn:nextTurn}).eq('id',currentMatch.id);
       }
       return;
     }
@@ -165,20 +195,10 @@ function checkWin(player){
   return false;
 }
 
-// --- UPDATE ELO ---
+// --- UPDATE ELO (simplifié) ---
 function updateElo(won){
-  const S = won ? 1 : 0;
-  const Ryou = currentUser.elo;
-  const Radv = currentMatch.player1===currentUser.id ? opponentElo(currentMatch.player2) : opponentElo(currentMatch.player1);
-  const Rnew = Ryou + 16*(S - 1/(1+10**((Radv-Ryou)/400)));
-  window.supabase.from('users').update({elo:Math.round(Rnew)}).eq('id',currentUser.id);
-}
-
-// --- OBTENIR ELO ADVERSAIRE ---
-function opponentElo(opponentId){
-  // Simple: récupérer depuis table users
-  // On peut améliorer plus tard pour Realtime
-  return 1000; // Valeur par défaut pour l'instant
+  // Pour l'instant Elo par défaut
+  console.log("Mettre à jour Elo ici si nécessaire");
 }
 
 // --- FIN DU MATCH ---
@@ -187,8 +207,8 @@ function endMatch(){
   currentMatch=null;
   gridState=Array(6).fill().map(()=>Array(7).fill(null));
   drawGrid();
-  document.getElementById('status').innerText='Match terminé. Cliquez sur "Trouver un adversaire" pour rejouer.';
   currentPlayerColor='red';
+  document.getElementById('status').innerText='Match terminé. Cliquez sur "Trouver un adversaire" pour rejouer.';
 }
 
 // --- EVENTS ---
