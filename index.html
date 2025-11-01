@@ -69,7 +69,9 @@
 <script>
   const SUPABASE_URL = "https://jyzcgwunvjjnhmjcrfim.supabase.co";
   const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5emNnd3VudmpqbmhtamNyZmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzYzMDMsImV4cCI6MjA3NzUxMjMwM30.O8m8Uao-TTIWbHb65XIBkh7y5GAfTLjwWzFOTFizyYQ";
-  const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ⚠️ Supabase correctement initialisé
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   let currentUser = null;
   let currentGame = null;
@@ -86,7 +88,7 @@
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     if(!username || !password) return alert('Remplis tous les champs');
-    const { data, error } = await supabase.from('users').insert({ username, password });
+    const { data, error } = await supabaseClient.from('users').insert({ username, password });
     if(error) return alert(error.message);
     alert('Inscription réussie ! Connectez-vous.');
   };
@@ -95,7 +97,7 @@
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value;
     if(!username || !password) return alert('Remplis tous les champs');
-    const { data, error } = await supabase.from('users').select().eq('username', username).eq('password', password).maybeSingle();
+    const { data, error } = await supabaseClient.from('users').select().eq('username', username).eq('password', password).maybeSingle();
     if(error || !data) return alert('Identifiants invalides');
     currentUser = data;
     authDiv.style.display = 'none';
@@ -109,7 +111,7 @@
 
   document.getElementById('createGame').onclick = async () => {
     const code = generateCode();
-    const { data, error } = await supabase.from('games').insert({
+    const { data, error } = await supabaseClient.from('games').insert({
       code,
       player1: currentUser.id
     }).select().maybeSingle();
@@ -125,10 +127,10 @@
   document.getElementById('joinGame').onclick = async () => {
     const code = document.getElementById('joinCode').value.toUpperCase();
     if(!code) return alert('Entre un code');
-    const { data: game, error } = await supabase.from('games').select().eq('code', code).maybeSingle();
+    const { data: game, error } = await supabaseClient.from('games').select().eq('code', code).maybeSingle();
     if(error || !game) return alert('Code invalide');
     if(game.player2) return alert('Partie déjà complète');
-    const { data, error:update } = await supabase.from('games').update({ player2: currentUser.id }).eq('id', game.id).select().maybeSingle();
+    const { data, error:update } = await supabaseClient.from('games').update({ player2: currentUser.id }).eq('id', game.id).select().maybeSingle();
     if(update) return alert(update.message);
     currentGame = data;
     lobbyDiv.style.display = 'none';
@@ -160,7 +162,7 @@
       }
     }
 
-    const { data, error } = await supabase.from('games').update({
+    const { data, error } = await supabaseClient.from('games').update({
       board: board.join(','),
       turn: currentGame.turn === 1 ? 2 : 1
     }).eq('id', currentGame.id).select().maybeSingle();
@@ -171,7 +173,7 @@
 
   async function pollGame() {
     if(!currentGame) return;
-    const { data, error } = await supabase.from('games').select().eq('id', currentGame.id).maybeSingle();
+    const { data, error } = await supabaseClient.from('games').select().eq('id', currentGame.id).maybeSingle();
     if(error) return console.error(error);
     if(data) {
       currentGame = data;
