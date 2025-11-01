@@ -76,6 +76,12 @@ async function login(){
   document.getElementById('status').innerText='Cliquez sur "Trouver un adversaire" pour commencer';
 }
 
+// --- DÉTERMINER LA COULEUR DU JOUEUR ---
+function getPlayerColor(){
+  if(!currentMatch) return 'red';
+  return currentUser.id === currentMatch.player1 ? 'red' : 'yellow';
+}
+
 // --- MATCHMAKING VIA RPC ---
 async function startMatch(){
   document.getElementById('status').innerText='Recherche d\'adversaire...';
@@ -93,16 +99,13 @@ async function startMatch(){
 
   currentMatch = data[0];
   gridState = currentMatch.grid || Array(6).fill().map(()=>Array(7).fill(null));
+  currentPlayerColor = getPlayerColor();
   drawGrid();
 
   if(subscription) subscription.unsubscribe();
   subscribeMatch(currentMatch.id);
 
-  if(currentMatch.status==='waiting'){
-    document.getElementById('status').innerText="En attente d'un adversaire...";
-  } else if(currentMatch.status==='playing'){
-    updateStatus();
-  }
+  updateStatus();
 }
 
 // --- SUBSCRIBE MATCH ---
@@ -112,12 +115,14 @@ function subscribeMatch(matchId){
     const match = payload.new;
     currentMatch = match;
     gridState = match.grid;
+    currentPlayerColor = getPlayerColor(); // ← met à jour la couleur automatiquement
     drawGrid();
     updateStatus();
   })
   .subscribe();
 }
 
+// --- MISE À JOUR DU STATUT ---
 function updateStatus(){
   if(!currentMatch) return;
   if(currentMatch.status==='waiting'){
@@ -157,7 +162,10 @@ function drawGrid(){
 // --- COUP ---
 async function makeMove(col){
   if(!currentMatch || currentMatch.status!=='playing') return;
-  if(currentMatch.turn !== currentUser.id){ alert("Ce n'est pas votre tour"); return; }
+  if(currentMatch.turn !== currentUser.id){ 
+    alert("Ce n'est pas votre tour"); 
+    return; 
+  }
 
   for(let r=5;r>=0;r--){
     if(!gridState[r][col]){
@@ -168,7 +176,7 @@ async function makeMove(col){
         alert(currentPlayerColor==='red' ? 'Vous gagnez!' : 'Vous perdez!');
         await endMatch(true);
       } else {
-        const nextTurn = currentUser.id===currentMatch.player1 ? currentMatch.player2 : currentMatch.player1;
+        const nextTurn = currentUser.id === currentMatch.player1 ? currentMatch.player2 : currentMatch.player1;
         await supabase.from('matches').update({grid:gridState, turn:nextTurn}).eq('id',currentMatch.id);
       }
       return;
@@ -205,6 +213,7 @@ async function endMatch(won){
 document.getElementById('btnRegister').onclick = register;
 document.getElementById('btnLogin').onclick = login;
 document.getElementById('btnMatch').onclick = startMatch;
+
 </script>
 </body>
 </html>
