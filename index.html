@@ -2,49 +2,173 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Test Supabase</title>
+<title>Puissance 4 - Supabase Test</title>
+<style>
+body { background:#071128; color:white; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; }
+#auth, #game { margin-top:20px; }
+button { margin:5px; padding:10px; cursor:pointer; }
+#grid { display:grid; grid-template-columns: repeat(7, 50px); grid-gap:5px; margin-top:20px; }
+.cell { width:50px; height:50px; background:#0e1a2b; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.cell.red { background:red; }
+.cell.yellow { background:yellow; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-<h1>Test Supabase - Inscription</h1>
+<h1>Puissance 4 - Test Supabase</h1>
 
-<input type="text" id="username" placeholder="Nom d'utilisateur">
-<input type="password" id="password" placeholder="Mot de passe">
-<button onclick="register()">S'inscrire</button>
+<div id="auth">
+  <input type="text" id="username" placeholder="Nom d'utilisateur">
+  <input type="password" id="password" placeholder="Mot de passe">
+  <button id="btnRegister">S'inscrire</button>
+  <button id="btnLogin">Se connecter</button>
+</div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<div id="game" style="display:none;">
+  <button id="btnMatch">Trouver un adversaire</button>
+  <div id="status"></div>
+  <div id="grid"></div>
+</div>
+
 <script>
-const supabaseUrl = 'https://albdeswcrzcgwnlfcrvm.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsYmRlc3djcnpjZ3dubGZjcnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzI5NzgsImV4cCI6MjA3NzUwODk3OH0.IQqPKCsdexg0mNc4M3uQUgX3QbZXjI7UknyPwDzdSk0';
-const supabase = supabase.createClient(supabaseUrl, supabaseKey);
+window.onload = () => {
+  const supabaseUrl = 'https://albdeswcrzcgwnlfcrvm.supabase.co';
+  const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsYmRlc3djcnpjZ3dubGZjcnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzI5NzgsImV4cCI6MjA3NzUwODk3OH0.IQqPKCsdexg0mNc4M3uQUgX3QbZXjI7UknyPwDzdSk0';
+  const supabase = supabase.createClient(supabaseUrl, supabaseKey);
 
-async function register(){
-  console.log('register clicked'); // Vérifie que le clic fonctionne
+  let currentUser = null;
+  let opponentUser = null;
+  let currentPlayer = 'red';
+  let gridState = Array(6).fill().map(()=>Array(7).fill(null));
 
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value.trim();
-  console.log('username:', username, 'password:', password);
+  // --- INSCRIPTION ---
+  window.register = async function() {
+    console.log('register clicked');
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+    console.log('username:', username, 'password:', password);
 
-  if(!username || !password){
-    alert('Remplissez tous les champs');
-    return;
-  }
+    if(!username || !password){ alert('Remplissez tous les champs'); return; }
 
-  try {
-    const { data, error } = await supabase.from('users').insert([{ username, password, elo: 1000 }]);
-    console.log('Supabase response -> data:', data, 'error:', error);
+    try {
+      const { data, error } = await supabase.from('users').insert([{ username, password, elo: 1000 }]);
+      console.log('Supabase response -> data:', data, 'error:', error);
 
-    if(error){
-      alert('Erreur: '+error.message);
-      return;
+      if(error){ alert('Erreur: '+error.message); return; }
+      alert('Inscription réussie ! Vous pouvez maintenant vous connecter.');
+    } catch(e){
+      console.error('Exception:', e);
+      alert('Exception: '+e.message);
     }
+  };
 
-    alert('Insertion réussie !');
-  } catch(e){
-    console.error('Exception:', e);
-    alert('Exception: '+e.message);
+  // --- CONNEXION ---
+  window.login = async function() {
+    console.log('login clicked');
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value.trim();
+
+    if(!username || !password){ alert('Remplissez tous les champs'); return; }
+
+    try {
+      const { data, error } = await supabase.from('users').select('*').eq('username', username).eq('password', password).limit(1);
+      console.log('Login response -> data:', data, 'error:', error);
+
+      if(error){ alert('Erreur: '+error.message); return; }
+      if(data.length === 0){ alert('Nom d\'utilisateur ou mot de passe incorrect'); return; }
+
+      currentUser = data[0];
+      document.getElementById('auth').style.display = 'none';
+      document.getElementById('game').style.display = 'block';
+      document.getElementById('status').innerText = 'Cliquez sur "Trouver un adversaire" pour commencer';
+    } catch(e){
+      console.error('Exception:', e);
+      alert('Exception: '+e.message);
+    }
+  };
+
+  // --- MATCHMAKING ---
+  window.startMatch = async function() {
+    document.getElementById('status').innerText = 'Recherche d\'adversaire...';
+    let { data: potential, error } = await supabase.from('users').select('*').neq('id', currentUser.id).order('elo', { ascending:true }).limit(1);
+    if(error){ console.error('Match error:', error); alert('Erreur matchmaking'); return; }
+    if(potential.length === 0){ alert('Pas d\'adversaire disponible'); return; }
+
+    opponentUser = potential[0];
+    document.getElementById('status').innerText = `Vous jouez contre ${opponentUser.username} (Elo: ${opponentUser.elo})`;
+    drawGrid();
+  };
+
+  // --- GRILLE ---
+  function drawGrid(){
+    const grid = document.getElementById('grid');
+    grid.innerHTML = '';
+    for(let r=0;r<6;r++){
+      for(let c=0;c<7;c++){
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        if(gridState[r][c]) cell.classList.add(gridState[r][c]);
+        cell.dataset.row = r;
+        cell.dataset.col = c;
+        cell.onclick = () => makeMove(c);
+        grid.appendChild(cell);
+      }
+    }
   }
-}
+
+  // --- COUPS ---
+  function makeMove(col){
+    for(let r=5;r>=0;r--){
+      if(!gridState[r][col]){
+        gridState[r][col] = currentPlayer;
+        drawGrid();
+        if(checkWin(currentPlayer)){
+          alert(currentPlayer === 'red' ? 'Vous gagnez!' : 'Vous perdez!');
+          updateElo(currentPlayer==='red');
+          resetGame();
+        }
+        currentPlayer = currentPlayer === 'red' ? 'yellow' : 'red';
+        return;
+      }
+    }
+  }
+
+  // --- VICTOIRE ---
+  function checkWin(player){
+    for(let r=0;r<6;r++){
+      for(let c=0;c<7;c++){
+        if(c+3<7 && gridState[r][c]===player && gridState[r][c+1]===player && gridState[r][c+2]===player && gridState[r][c+3]===player) return true;
+        if(r+3<6 && gridState[r][c]===player && gridState[r+1][c]===player && gridState[r+2][c]===player && gridState[r+3][c]===player) return true;
+        if(c+3<7 && r+3<6 && gridState[r][c]===player && gridState[r+1][c+1]===player && gridState[r+2][c+2]===player && gridState[r+3][c+3]===player) return true;
+        if(c-3>=0 && r+3<6 && gridState[r][c]===player && gridState[r+1][c-1]===player && gridState[r+2][c-2]===player && gridState[r+3][c-3]===player) return true;
+      }
+    }
+    return false;
+  }
+
+  // --- ELO ---
+  async function updateElo(won){
+    const S = won ? 1 : 0;
+    const Ryou = currentUser.elo;
+    const Radv = opponentUser.elo;
+    const Rnew = Ryou + 16*(S - 1/(1 + 10**((Radv-Ryou)/400)));
+    await supabase.from('users').update({ elo: Math.round(Rnew) }).eq('id', currentUser.id);
+  }
+
+  // --- RESET ---
+  function resetGame(){
+    gridState = Array(6).fill().map(()=>Array(7).fill(null));
+    drawGrid();
+    currentPlayer = 'red';
+    document.getElementById('status').innerText = 'Cliquez sur "Trouver un adversaire" pour rejouer.';
+  }
+
+  // --- ATTACH EVENTS ---
+  document.getElementById('btnRegister').onclick = register;
+  document.getElementById('btnLogin').onclick = login;
+  document.getElementById('btnMatch').onclick = startMatch;
+};
 </script>
 
 </body>
