@@ -2,220 +2,163 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Puissance 4 - Matchmaking RPC</title>
+<title>Puissance 4 Multi</title>
 <style>
-body { 
-  background:#071128; 
-  color:white; 
-  font-family:sans-serif; 
-  display:flex; 
-  flex-direction:column; 
-  align-items:center; 
-}
-#auth, #game { margin-top:20px; }
-button { margin:5px; padding:10px; cursor:pointer; }
-#grid { display:grid; grid-template-columns: repeat(7, 50px); grid-gap:5px; margin-top:20px; }
-.cell { width:50px; height:50px; background:#0e1a2b; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; }
-.cell.red { background:red; }
-.cell.yellow { background:yellow; }
+  body { background:#071128; color:white; font-family:sans-serif; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; margin:0; }
+  #auth, #game, #lobby { display:none; flex-direction:column; align-items:center; gap:10px; }
+  input, button { padding:5px 10px; margin:5px; }
+  #board { display:grid; grid-template-columns:repeat(7,50px); grid-template-rows:repeat(6,50px); gap:5px; }
+  .cell { width:50px; height:50px; background:#333; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; cursor:pointer; }
+  .player1 { background:red; }
+  .player2 { background:yellow; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-<h1>Puissance 4 - Matchmaking RPC</h1>
-
 <div id="auth">
-  <input type="text" id="username" placeholder="Nom d'utilisateur">
-  <input type="password" id="password" placeholder="Mot de passe">
-  <button id="btnRegister">S'inscrire</button>
-  <button id="btnLogin">Se connecter</button>
+  <h2>Connexion / Inscription</h2>
+  <input id="username" placeholder="Nom d'utilisateur"/>
+  <input id="password" type="password" placeholder="Mot de passe"/>
+  <button id="signup">S'inscrire</button>
+  <button id="login">Se connecter</button>
 </div>
 
-<div id="game" style="display:none;">
-  <button id="btnMatch">Trouver un adversaire</button>
-  <div id="status"></div>
-  <div id="grid"></div>
+<div id="lobby">
+  <h2>Lobby</h2>
+  <button id="createGame">Créer une partie</button>
+  <input id="joinCode" placeholder="Code à rejoindre"/>
+  <button id="joinGame">Rejoindre la partie</button>
 </div>
 
+<div id="game">
+  <h2 id="status">En attente...</h2>
+  <div id="board"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-window.supabaseUrl = 'https://albdeswcrzcgwnlfcrvm.supabase.co';
-window.supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFsYmRlc3djcnpjZ3dubGZjcnZtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzI5NzgsImV4cCI6MjA3NzUwODk3OH0.IQqPKCsdexg0mNc4M3uQUgX3QbZXjI7UknyPwDzdSk0';
-window.supabase = supabase.createClient(window.supabaseUrl, window.supabaseKey);
+  const SUPABASE_URL = "https://jyzcgwunvjjnhmjcrfim.supabase.co";
+  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5emNnd3VudmpqbmhtamNyZmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzYzMDMsImV4cCI6MjA3NzUxMjMwM30.O8m8Uao-TTIWbHb65XIBkh7y5GAfTLjwWzFOTFizyYQ";
+  const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-let currentUser = null;
-let currentMatch = null;
-let currentPlayerColor = 'red';
-let gridState = Array(6).fill().map(()=>Array(7).fill(null));
-let subscription = null;
+  let currentUser = null;
+  let currentGame = null;
+  let board = Array(42).fill(0);
 
-// --- INSCRIPTION ---
-async function register(){
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value.trim();
-  if(!username || !password){ alert('Remplissez tous les champs'); return; }
+  const authDiv = document.getElementById('auth');
+  const lobbyDiv = document.getElementById('lobby');
+  const gameDiv = document.getElementById('game');
+  const boardDiv = document.getElementById('board');
+  const statusH2 = document.getElementById('status');
 
-  const { data, error } = await supabase.from('users').insert([{ username, password, elo:1000 }]);
-  if(error){ alert('Erreur: '+error.message); return; }
-  alert('Inscription réussie ! Vous pouvez maintenant vous connecter.');
-}
+  authDiv.style.display = 'flex';
 
-// --- CONNEXION ---
-async function login(){
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value.trim();
-  if(!username || !password){ alert('Remplissez tous les champs'); return; }
+  // --- Auth ---
+  document.getElementById('signup').onclick = async () => {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const { data, error } = await supabase.from('users').insert({ username, password });
+    if(error) return alert(error.message);
+    alert('Inscription réussie ! Connectez-vous.');
+  };
 
-  const { data, error } = await supabase.from('users').select('*').eq('username', username).eq('password', password).limit(1);
-  if(error){ alert('Erreur: '+error.message); return; }
-  if(data.length===0){ alert('Nom d\'utilisateur ou mot de passe incorrect'); return; }
+  document.getElementById('login').onclick = async () => {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const { data, error } = await supabase.from('users').select().eq('username', username).eq('password', password).single();
+    if(error || !data) return alert('Identifiants invalides');
+    currentUser = data;
+    authDiv.style.display = 'none';
+    lobbyDiv.style.display = 'flex';
+  };
 
-  currentUser = data[0];
-  document.getElementById('auth').style.display='none';
-  document.getElementById('game').style.display='block';
-  document.getElementById('status').innerText='Cliquez sur "Trouver un adversaire" pour commencer';
-}
-
-// --- DÉTERMINER LA COULEUR DU JOUEUR ---
-function getPlayerColor(){
-  if(!currentMatch) return 'red';
-  if(!currentMatch.player2) return 'red'; // match pas encore commencé
-  return currentUser.id === currentMatch.player1 ? 'red' : 'yellow';
-}
-
-// --- MATCHMAKING VIA RPC ---
-async function startMatch(){
-  document.getElementById('status').innerText='Recherche d\'adversaire...';
-
-  const { data, error } = await supabase.rpc('join_or_create_match', { uid: currentUser.id });
-  if(error){ 
-    alert('Erreur matchmaking RPC: '+error.message);
-    return;
+  // --- Lobby ---
+  function generateCode() {
+    return Math.random().toString(36).substring(2,8).toUpperCase();
   }
 
-  if(!data || data.length===0){
-    document.getElementById('status').innerText='Aucun match trouvé, réessayez.';
-    return;
+  document.getElementById('createGame').onclick = async () => {
+    const code = generateCode();
+    const { data, error } = await supabase.from('games').insert({
+      code,
+      player1: currentUser.id
+    }).select().single();
+    if(error) return alert(error.message);
+    currentGame = data;
+    lobbyDiv.style.display = 'none';
+    gameDiv.style.display = 'flex';
+    statusH2.textContent = 'En attente d\'un adversaire...';
+    pollGame();
+    alert('Code pour rejoindre : ' + code);
+  };
+
+  document.getElementById('joinGame').onclick = async () => {
+    const code = document.getElementById('joinCode').value.toUpperCase();
+    const { data: game, error } = await supabase.from('games').select().eq('code', code).single();
+    if(error || !game) return alert('Code invalide');
+    if(game.player2) return alert('Partie déjà complète');
+    const { data, error:update } = await supabase.from('games').update({ player2: currentUser.id }).eq('id', game.id).select().single();
+    if(update) return alert(update.message);
+    currentGame = data;
+    lobbyDiv.style.display = 'none';
+    gameDiv.style.display = 'flex';
+    pollGame();
+  };
+
+  // --- Board ---
+  function renderBoard() {
+    boardDiv.innerHTML = '';
+    board.forEach((cell, idx) => {
+      const div = document.createElement('div');
+      div.className = 'cell ' + (cell === 1 ? 'player1' : cell === 2 ? 'player2' : '');
+      div.onclick = () => makeMove(idx % 7);
+      boardDiv.appendChild(div);
+    });
   }
 
-  currentMatch = data[0];
-  gridState = currentMatch.grid || Array(6).fill().map(()=>Array(7).fill(null));
-  currentPlayerColor = getPlayerColor();
-  drawGrid();
+  async function makeMove(col) {
+    if(!currentGame) return;
+    const turnPlayer = currentGame.turn === 1 ? currentGame.player1 : currentGame.player2;
+    if(currentUser.id !== turnPlayer) return alert('Ce n\'est pas votre tour !');
 
-  if(subscription) subscription.unsubscribe();
-  subscribeMatch(currentMatch.id);
-
-  updateStatus();
-}
-
-// --- SUBSCRIBE MATCH ---
-function subscribeMatch(matchId){
-  subscription = supabase.channel('match:'+matchId)
-  .on('postgres_changes',{event:'UPDATE',schema:'public',table:'matches',filter:`id=eq.${matchId}`},payload=>{
-    const match = payload.new;
-    currentMatch = match;
-    gridState = match.grid;
-    currentPlayerColor = getPlayerColor();
-    drawGrid();
-    updateStatus();
-  })
-  .subscribe();
-}
-
-// --- MISE À JOUR DU STATUT ---
-function updateStatus(){
-  if(!currentMatch) return;
-  if(currentMatch.status==='waiting'){
-    document.getElementById('status').innerText="En attente d'un adversaire...";
-  } else if(currentMatch.status==='playing'){
-    if(!currentMatch.turn){
-      document.getElementById('status').innerText="En attente du premier tour...";
-      return;
-    }
-    document.getElementById('status').innerText = 
-      currentMatch.turn === currentUser.id ? "C'est votre tour" : "Tour de votre adversaire";
-  } else if(currentMatch.status==='finished'){
-    document.getElementById('status').innerText="Match terminé. Cliquez sur 'Trouver un adversaire' pour rejouer.";
-    currentMatch=null;
-    currentPlayerColor='red';
-    gridState=Array(6).fill().map(()=>Array(7).fill(null));
-    drawGrid();
-  }
-}
-
-// --- DESSIN GRILLE ---
-function drawGrid(){
-  const grid = document.getElementById('grid');
-  grid.innerHTML='';
-  for(let r=0;r<6;r++){
-    for(let c=0;c<7;c++){
-      const cell = document.createElement('div');
-      cell.className='cell';
-      if(gridState[r][c]) cell.classList.add(gridState[r][c]);
-      cell.dataset.row=r;
-      cell.dataset.col=c;
-      cell.onclick=()=>makeMove(c);
-      grid.appendChild(cell);
-    }
-  }
-}
-
-// --- COUP ---
-async function makeMove(col){
-  if(!currentMatch || currentMatch.status!=='playing') return;
-  if(!currentMatch.turn) return; // match pas encore commencé
-  if(currentMatch.turn !== currentUser.id){ 
-    alert("Ce n'est pas votre tour"); 
-    return; 
-  }
-
-  for(let r=5;r>=0;r--){
-    if(!gridState[r][col]){
-      gridState[r][col] = currentPlayerColor;
-      drawGrid();
-
-      if(checkWin(currentPlayerColor)){
-        alert(currentPlayerColor==='red' ? 'Vous gagnez!' : 'Vous perdez!');
-        await endMatch(true);
-      } else {
-        const nextTurn = currentUser.id === currentMatch.player1 ? currentMatch.player2 : currentMatch.player1;
-        await supabase.from('matches').update({grid:gridState, turn:nextTurn}).eq('id',currentMatch.id);
+    // trouver la première cellule vide de la colonne
+    for(let row=5; row>=0; row--) {
+      const idx = row*7 + col;
+      if(board[idx] === 0) {
+        board[idx] = currentGame.turn;
+        break;
       }
-      return;
     }
-  }
-}
 
-// --- CHECK VICTOIRE ---
-function checkWin(player){
-  for(let r=0;r<6;r++){
-    for(let c=0;c<7;c++){
-      if(c+3<7 && gridState[r][c]===player && gridState[r][c+1]===player && gridState[r][c+2]===player && gridState[r][c+3]===player) return true;
-      if(r+3<6 && gridState[r][c]===player && gridState[r+1][c]===player && gridState[r+2][c]===player && gridState[r+3][c]===player) return true;
-      if(c+3<7 && r+3<6 && gridState[r][c]===player && gridState[r+1][c+1]===player && gridState[r+2][c+2]===player && gridState[r+3][c+3]===player) return true;
-      if(c-3>=0 && r+3<6 && gridState[r][c]===player && gridState[r+1][c-1]===player && gridState[r+2][c-2]===player && gridState[r+3][c-3]===player) return true;
+    // update Supabase
+    const { data, error } = await supabase.from('games').update({
+      board: board.join(','),
+      turn: currentGame.turn === 1 ? 2 : 1
+    }).eq('id', currentGame.id).select().single();
+    if(error) return alert(error.message);
+    currentGame = data;
+    renderBoard();
+    checkWinner();
+  }
+
+  function checkWinner() {
+    // simple check horizontale/verticale/diagonale (à compléter pour gagner)
+  }
+
+  async function pollGame() {
+    if(!currentGame) return;
+    const { data, error } = await supabase.from('games').select().eq('id', currentGame.id).single();
+    if(error) return console.error(error);
+    currentGame = data;
+    board = currentGame.board.split(',').map(Number);
+    renderBoard();
+    if(currentGame.turn === 1 && currentGame.player1 === currentUser.id || currentGame.turn === 2 && currentGame.player2 === currentUser.id) {
+      statusH2.textContent = 'Votre tour';
+    } else {
+      statusH2.textContent = 'Tour de votre adversaire';
     }
+    setTimeout(pollGame, 2000); // rafraîchissement toutes les 2s
   }
-  return false;
-}
-
-// --- FIN DU MATCH ---
-async function endMatch(won){
-  if(currentMatch){
-    await supabase.from('matches').update({status:'finished'}).eq('id',currentMatch.id);
-  }
-  currentMatch=null;
-  currentPlayerColor='red';
-  gridState=Array(6).fill().map(()=>Array(7).fill(null));
-  drawGrid();
-  document.getElementById('status').innerText='Match terminé. Cliquez sur "Trouver un adversaire" pour rejouer.';
-}
-
-// --- EVENTS ---
-document.getElementById('btnRegister').onclick = register;
-document.getElementById('btnLogin').onclick = login;
-document.getElementById('btnMatch').onclick = startMatch;
 
 </script>
 </body>
