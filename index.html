@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Puissance 4 Multi - Elo</title>
+<title>Puissance 4 Multi avec ELO</title>
 <style>
   body {
     background:#071128;
@@ -15,11 +15,7 @@
     min-height:100vh;
     margin:0;
   }
-  #auth, #game, #lobby {
-    flex-direction:column;
-    align-items:center;
-    gap:10px;
-  }
+  #auth, #lobby, #game { display:none; flex-direction:column; align-items:center; gap:10px; }
   input, button { padding:5px 10px; margin:5px; }
   #board {
     display:grid;
@@ -44,240 +40,238 @@
     position:fixed;
     top:10px;
     right:20px;
+    background:#111a;
+    padding:6px 10px;
+    border-radius:8px;
     font-weight:bold;
-    color:#0f0;
   }
 </style>
 </head>
 <body>
 
-<div id="eloDisplay" style="display:none;">ELO: 1000</div>
+<div id="eloDisplay"></div>
 
 <!-- Connexion -->
 <div id="auth" style="display:flex;">
   <h2>Connexion / Inscription</h2>
-  <input id="username" placeholder="Nom d'utilisateur"/>
-  <input id="password" type="password" placeholder="Mot de passe"/>
+  <input id="username" placeholder="Nom d'utilisateur">
+  <input id="password" type="password" placeholder="Mot de passe">
   <button id="signup">S'inscrire</button>
   <button id="login">Se connecter</button>
 </div>
 
 <!-- Lobby -->
-<div id="lobby" style="display:none;">
+<div id="lobby">
   <h2>Lobby</h2>
   <button id="createGame">Créer une partie</button>
-  <input id="joinCode" placeholder="Code à rejoindre"/>
+  <input id="joinCode" placeholder="Code à rejoindre">
   <button id="joinGame">Rejoindre</button>
   <h3 id="showCode" style="display:none;">Code : <span id="gameCode"></span></h3>
 </div>
 
 <!-- Jeu -->
-<div id="game" style="display:none;">
+<div id="game">
   <h2 id="status">En attente d'un adversaire...</h2>
   <div id="board"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const SUPABASE_URL = "https://jyzcgwunvjjnhmjcrfim.supabase.co";
-  const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5emNnd3VudmpqbmhtamNyZmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzYzMDMsImV4cCI6MjA3NzUxMjMwM30.O8m8Uao-TTIWbHb65XIBkh7y5GAfTLjwWzFOTFizyYQ";
-  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const SUPABASE_URL = "https://jyzcgwunvjjnhmjcrfim.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5emNnd3VudmpqbmhtamNyZmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzYzMDMsImV4cCI6MjA3NzUxMjMwM30.O8m8Uao-TTIWbHb65XIBkh7y5GAfTLjwWzFOTFizyYQ";
 
-  let currentUser = null;
-  let currentGame = null;
-  let board = Array(42).fill(0);
-  let gameEnded = false;
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  const authDiv = document.getElementById('auth');
-  const lobbyDiv = document.getElementById('lobby');
-  const gameDiv = document.getElementById('game');
-  const boardDiv = document.getElementById('board');
-  const statusH2 = document.getElementById('status');
-  const showCode = document.getElementById('showCode');
-  const gameCode = document.getElementById('gameCode');
-  const eloDisplay = document.getElementById('eloDisplay');
+let currentUser = null;
+let currentGame = null;
+let board = Array(42).fill(0);
+let playerNumber = 0;
 
-  // --- Auth ---
-  document.getElementById('signup').onclick = async () => {
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value.trim();
-    if(!username || !password) return alert('Remplis tous les champs');
-    const { error } = await supabaseClient.from('users').insert({ username, password, elo:1000 });
-    if(error) return alert(error.message);
-    alert('Inscription réussie ! Connectez-vous.');
-  };
+const authDiv = document.getElementById('auth');
+const lobbyDiv = document.getElementById('lobby');
+const gameDiv = document.getElementById('game');
+const boardDiv = document.getElementById('board');
+const statusH2 = document.getElementById('status');
+const showCode = document.getElementById('showCode');
+const gameCode = document.getElementById('gameCode');
+const eloDisplay = document.getElementById('eloDisplay');
 
-  document.getElementById('login').onclick = async () => {
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value.trim();
-    const { data, error } = await supabaseClient.from('users')
-      .select()
-      .eq('username', username)
-      .eq('password', password)
-      .maybeSingle();
-    if(error || !data) return alert('Identifiants invalides');
-    currentUser = data;
-    authDiv.style.display = 'none';
-    lobbyDiv.style.display = 'flex';
-    eloDisplay.style.display = 'block';
-    updateEloDisplay();
-  };
+// --- Auth ---
+const usernameInput = document.getElementById('username');
+const passwordInput = document.getElementById('password');
 
-  const usernameInput = document.getElementById('username');
-  const passwordInput = document.getElementById('password');
+document.getElementById('signup').onclick = async () => {
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value.trim();
+  if (!username || !password) return alert("Remplis tous les champs");
+  const { error } = await supabaseClient.from('users').insert({ username, password, elo: 1000 });
+  if (error) return alert(error.message);
+  alert("Inscription réussie !");
+};
 
-  function updateEloDisplay() {
-    eloDisplay.textContent = `ELO: ${currentUser.elo ?? 1000}`;
-  }
+document.getElementById('login').onclick = async () => {
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value.trim();
+  const { data, error } = await supabaseClient.from('users')
+    .select()
+    .eq('username', username)
+    .eq('password', password)
+    .maybeSingle();
+  if (error || !data) return alert("Identifiants invalides");
+  currentUser = data;
+  eloDisplay.textContent = `ELO : ${currentUser.elo}`;
+  authDiv.style.display = 'none';
+  lobbyDiv.style.display = 'flex';
+};
 
-  // --- Lobby ---
-  function generateCode() {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-  }
+// --- Lobby ---
+function generateCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
 
-  document.getElementById('createGame').onclick = async () => {
-    const code = generateCode();
-    const { data, error } = await supabaseClient.from('games')
-      .insert({ code, player1: currentUser.id, board: board.join(','), turn: 1, winner: null })
-      .select()
-      .maybeSingle();
-    if(error) return alert(error.message);
-    currentGame = data;
-    showCode.style.display = 'block';
-    gameCode.textContent = code;
-    gameDiv.style.display = 'flex';
-    boardDiv.style.display = 'none';
-    statusH2.textContent = "En attente d'un adversaire...";
-    pollGame();
-  };
+document.getElementById('createGame').onclick = async () => {
+  const code = generateCode();
+  const { data, error } = await supabaseClient.from('games')
+    .insert({ code, player1: currentUser.id, board: board.join(','), turn: 1 })
+    .select().maybeSingle();
+  if (error) return alert(error.message);
+  currentGame = data;
+  playerNumber = 1;
+  showCode.style.display = 'block';
+  gameCode.textContent = code;
+  lobbyDiv.style.display = 'none';
+  gameDiv.style.display = 'flex';
+  boardDiv.style.display = 'none';
+  statusH2.textContent = "En attente d'un adversaire...";
+  pollGame();
+};
 
-  document.getElementById('joinGame').onclick = async () => {
-    const code = document.getElementById('joinCode').value.trim().toUpperCase();
-    if(!code) return alert('Entre un code');
-    const { data: game, error } = await supabaseClient.from('games').select().eq('code', code).maybeSingle();
-    if(error || !game) return alert('Code invalide');
-    if(game.player2) return alert('Partie déjà pleine');
-    const { data, error:update } = await supabaseClient.from('games')
-      .update({ player2: currentUser.id })
-      .eq('id', game.id)
-      .select()
-      .maybeSingle();
-    if(update) return alert(update.message);
-    currentGame = data;
-    lobbyDiv.style.display = 'none';
-    gameDiv.style.display = 'flex';
-    boardDiv.style.display = 'grid';
-    statusH2.textContent = "C'est à votre adversaire de jouer";
-    pollGame();
-  };
+document.getElementById('joinGame').onclick = async () => {
+  const code = document.getElementById('joinCode').value.trim().toUpperCase();
+  if (!code) return alert("Entre un code");
+  const { data: game, error } = await supabaseClient.from('games').select().eq('code', code).maybeSingle();
+  if (error || !game) return alert("Code invalide");
+  if (game.player2) return alert("Partie déjà pleine");
+  const { data, error: updErr } = await supabaseClient.from('games')
+    .update({ player2: currentUser.id })
+    .eq('id', game.id)
+    .select().maybeSingle();
+  if (updErr) return alert(updErr.message);
+  currentGame = data;
+  playerNumber = 2;
+  lobbyDiv.style.display = 'none';
+  gameDiv.style.display = 'flex';
+  boardDiv.style.display = 'grid';
+  statusH2.textContent = "C'est à votre adversaire de jouer";
+  pollGame();
+};
 
-  // --- Board ---
-  function renderBoard() {
-    boardDiv.innerHTML = '';
-    board.forEach((cell, idx) => {
-      const div = document.createElement('div');
-      div.className = 'cell ' + (cell === 1 ? 'player1' : cell === 2 ? 'player2' : '');
-      div.onclick = () => makeMove(idx % 7);
-      boardDiv.appendChild(div);
-    });
-  }
+// --- Board ---
+function renderBoard() {
+  boardDiv.innerHTML = '';
+  board.forEach((cell, idx) => {
+    const div = document.createElement('div');
+    div.className = 'cell ' + (cell === 1 ? 'player1' : cell === 2 ? 'player2' : '');
+    div.onclick = () => makeMove(idx % 7);
+    boardDiv.appendChild(div);
+  });
+}
 
-  async function makeMove(col) {
-    if(!currentGame || gameEnded) return;
-    const turnPlayer = currentGame.turn === 1 ? currentGame.player1 : currentGame.player2;
-    if(currentUser.id !== turnPlayer) return;
-    for(let row = 5; row >= 0; row--) {
-      const idx = row * 7 + col;
-      if(board[idx] === 0) {
-        board[idx] = currentGame.turn;
-        break;
-      }
-    }
-
-    const winner = checkWinner();
-    const nextTurn = currentGame.turn === 1 ? 2 : 1;
-    const { data, error } = await supabaseClient.from('games')
-      .update({ board: board.join(','), turn: nextTurn, winner })
-      .eq('id', currentGame.id)
-      .select()
-      .maybeSingle();
-    if(error) return alert(error.message);
-    currentGame = data;
-    renderBoard();
-
-    if(winner) {
-      gameEnded = true;
-      await updateElo(winner);
-      alert(winner === (currentGame.player1 === currentUser.id ? 1 : 2) ? 'Vous avez gagné !' : 'Vous avez perdu.');
+async function makeMove(col) {
+  if (!currentGame) return;
+  if (currentGame.winner) return;
+  const isMyTurn = (currentGame.turn === playerNumber);
+  if (!isMyTurn) return;
+  for (let row = 5; row >= 0; row--) {
+    const idx = row * 7 + col;
+    if (board[idx] === 0) {
+      board[idx] = playerNumber;
+      break;
     }
   }
+  const winner = checkWinner();
+  const updateData = { board: board.join(','), turn: playerNumber === 1 ? 2 : 1 };
+  if (winner) updateData.winner = winner;
+  const { data, error } = await supabaseClient.from('games')
+    .update(updateData)
+    .eq('id', currentGame.id)
+    .select().maybeSingle();
+  if (error) return alert(error.message);
+  currentGame = data;
+  renderBoard();
 
-  function checkWinner() {
-    const lines = [
-      [1,0],[0,1],[1,1],[1,-1]
-    ];
-    for(let r=0;r<6;r++){
-      for(let c=0;c<7;c++){
-        const start = board[r*7+c];
-        if(!start) continue;
-        for(const [dr,dc] of lines){
-          let count=1;
-          for(let k=1;k<4;k++){
-            const nr=r+dr*k,nc=c+dc*k;
-            if(nr<0||nr>=6||nc<0||nc>=7) break;
-            if(board[nr*7+nc]===start) count++;
-            else break;
-          }
-          if(count>=4) return start;
+  if (winner) await updateElo(winner);
+}
+
+function checkWinner() {
+  const dirs = [[1,0],[0,1],[1,1],[1,-1]];
+  for (let r=0;r<6;r++){
+    for (let c=0;c<7;c++){
+      const idx = r*7+c;
+      const p = board[idx];
+      if (!p) continue;
+      for (const [dx,dy] of dirs){
+        let count=1;
+        for (let i=1;i<4;i++){
+          const nr=r+dy*i, nc=c+dx*i;
+          if(nr<0||nr>5||nc<0||nc>6) break;
+          if(board[nr*7+nc]===p) count++;
         }
+        if(count>=4) return p;
       }
     }
-    return null;
   }
+  return 0;
+}
 
-  async function updateElo(winnerNum) {
-    const winnerId = winnerNum === 1 ? currentGame.player1 : currentGame.player2;
-    const loserId = winnerNum === 1 ? currentGame.player2 : currentGame.player1;
-    const { data: users } = await supabaseClient.from('users').select().in('id',[winnerId,loserId]);
-    const winner = users.find(u=>u.id===winnerId);
-    const loser = users.find(u=>u.id===loserId);
+async function updateElo(winnerNum) {
+  const { data: g } = await supabaseClient.from('games').select('player1, player2').eq('id', currentGame.id).maybeSingle();
+  const { data: p1 } = await supabaseClient.from('users').select().eq('id', g.player1).maybeSingle();
+  const { data: p2 } = await supabaseClient.from('users').select().eq('id', g.player2).maybeSingle();
 
-    const expectedWin = 1/(1+10**((loser.elo - winner.elo)/400));
-    const expectedLose = 1/(1+10**((winner.elo - loser.elo)/400));
+  if (!p1 || !p2) return;
 
-    const newWinnerElo = Math.round(winner.elo + 16*(1 - expectedWin));
-    const newLoserElo = Math.round(loser.elo + 16*(0 - expectedLose));
+  const K = 16;
+  const R1 = p1.elo;
+  const R2 = p2.elo;
+  const expected1 = 1 / (1 + 10 ** ((R2 - R1) / 400));
+  const expected2 = 1 / (1 + 10 ** ((R1 - R2) / 400));
 
-    await supabaseClient.from('users').update({ elo:newWinnerElo }).eq('id',winner.id);
-    await supabaseClient.from('users').update({ elo:newLoserElo }).eq('id',loser.id);
+  const S1 = (winnerNum === 1) ? 1 : 0;
+  const S2 = (winnerNum === 2) ? 1 : 0;
 
-    if(currentUser.id===winner.id) currentUser.elo=newWinnerElo;
-    if(currentUser.id===loser.id) currentUser.elo=newLoserElo;
-    updateEloDisplay();
-  }
+  const newElo1 = Math.round(R1 + K * (S1 - expected1));
+  const newElo2 = Math.round(R2 + K * (S2 - expected2));
 
-  async function pollGame() {
-    if(!currentGame) return;
-    const { data, error } = await supabaseClient.from('games').select().eq('id', currentGame.id).maybeSingle();
-    if(error) return console.error(error);
-    if(data) {
-      currentGame = data;
-      board = currentGame.board ? currentGame.board.split(',').map(Number) : Array(42).fill(0);
-      const bothPlayers = currentGame.player1 && currentGame.player2;
-      if(bothPlayers) {
-        boardDiv.style.display = 'grid';
-        const yourTurn = (currentGame.turn === 1 && currentGame.player1 === currentUser.id) ||
-                         (currentGame.turn === 2 && currentGame.player2 === currentUser.id);
-        statusH2.textContent = currentGame.winner
-          ? (currentGame.winner === (currentGame.player1 === currentUser.id ? 1 : 2)
-              ? 'Vous avez gagné 🎉'
-              : 'Vous avez perdu ❌')
-          : (yourTurn ? "Votre tour" : "Tour de votre adversaire");
-      }
-      renderBoard();
+  await supabaseClient.from('users').update({ elo: newElo1 }).eq('id', p1.id);
+  await supabaseClient.from('users').update({ elo: newElo2 }).eq('id', p2.id);
+
+  if (currentUser.id === p1.id) eloDisplay.textContent = `ELO : ${newElo1}`;
+  if (currentUser.id === p2.id) eloDisplay.textContent = `ELO : ${newElo2}`;
+
+  statusH2.textContent = (winnerNum === playerNumber) ? "🎉 Vous avez gagné !" : "❌ Vous avez perdu !";
+}
+
+// --- Polling ---
+async function pollGame() {
+  if (!currentGame) return;
+  const { data, error } = await supabaseClient.from('games').select().eq('id', currentGame.id).maybeSingle();
+  if (error) return console.error(error);
+  if (data) {
+    currentGame = data;
+    board = currentGame.board ? currentGame.board.split(',').map(Number) : Array(42).fill(0);
+    const bothPlayers = currentGame.player1 && currentGame.player2;
+    if (bothPlayers && !currentGame.winner) {
+      boardDiv.style.display = 'grid';
+      statusH2.textContent = (currentGame.turn === playerNumber) ? "Votre tour" : "Tour de votre adversaire";
     }
-    if(!currentGame.winner) setTimeout(pollGame, 2000);
+    if (currentGame.winner) {
+      statusH2.textContent = (currentGame.winner === playerNumber) ? "🎉 Vous avez gagné !" : "❌ Vous avez perdu !";
+    }
+    renderBoard();
   }
+  setTimeout(pollGame, 2000);
+}
 </script>
 
 </body>
