@@ -16,11 +16,33 @@ body {
   height: 100vh;
 }
 #auth, #lobby, #game { display: none; }
-#grid { display: grid; grid-template-columns: repeat(7, 60px); grid-gap: 5px; margin-top: 20px; }
-.cell { width: 60px; height: 60px; border-radius: 50%; background: #123; cursor: pointer; display: flex; justify-content: center; align-items: center; }
+#grid {
+  display: grid;
+  grid-template-columns: repeat(7, 60px);
+  grid-gap: 5px;
+  margin-top: 20px;
+}
+.cell {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #123;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
 .cell.red { background: red; }
 .cell.yellow { background: yellow; }
-#eloDisplay { position: fixed; top: 10px; right: 20px; font-size: 18px; background: rgba(0,0,0,0.4); padding: 6px 10px; border-radius: 8px; }
+#eloDisplay {
+  position: fixed;
+  top: 10px;
+  right: 20px;
+  font-size: 18px;
+  background: rgba(0,0,0,0.4);
+  padding: 6px 10px;
+  border-radius: 8px;
+}
 </style>
 </head>
 <body>
@@ -37,7 +59,7 @@ body {
 
 <div id="lobby">
   <h2 id="codeSection"></h2>
-  <button id="createGame">Créer une partie (code aléatoire)</button>
+  <button id="createGame">Créer une partie (code aléatoire)</button><br><br>
   <input id="joinCode" placeholder="Entrer code à 6 lettres">
   <button id="joinGame">Rejoindre</button>
 </div>
@@ -51,7 +73,7 @@ body {
 const { createClient } = supabase;
 const supabaseUrl = "https://jyzcgwunvjjnhmjcrfim.supabase.co";
 const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp5emNnd3VudmpqbmhtamNyZmltIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE5MzYzMDMsImV4cCI6MjA3NzUxMjMwM30.O8m8Uao-TTIWbHb65XIBkh7y5GAfTLjwWzFOTFizyYQ";
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseClient = createClient(supabaseUrl, supabaseKey);
 
 let user = null;
 let currentGame = null;
@@ -59,48 +81,69 @@ let isMyTurn = false;
 let playerColor = null;
 let elo = 1000;
 
-// --- Connexion / Inscription ---
+// ------------------- AUTH -------------------
 document.getElementById("auth").style.display = "block";
 
 document.getElementById("login").onclick = async () => {
-  const { data, error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
     email: email.value,
-    password: password.value,
+    password: password.value
   });
   if (error) return alert(error.message);
   user = data.user;
+  await ensureUserRow(user);
   await loadUserElo();
   showLobby();
 };
 
 document.getElementById("signup").onclick = async () => {
-  const { data, error } = await supabase.auth.signUp({
+  const { data, error } = await supabaseClient.auth.signUp({
     email: email.value,
-    password: password.value,
+    password: password.value
   });
   if (error) return alert(error.message);
-  await supabase.from("users").update({ elo: 1000 }).eq("id", data.user.id);
   user = data.user;
+  await ensureUserRow(user);
   await loadUserElo();
   showLobby();
 };
 
-// --- Charger Elo depuis Supabase ---
+// ------------------- UTIL FUNCTIONS -------------------
+async function ensureUserRow(user) {
+  // Vérifie si l'utilisateur existe dans table users
+  const { data, error } = await supabaseClient
+    .from("users")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (!data) {
+    await supabaseClient.from("users").insert({ id: user.id, elo: 1000 });
+  }
+}
+
 async function loadUserElo() {
-  const { data, error } = await supabase.from("users").select("elo").eq("id", user.id).single();
-  if (error) console.log(error);
+  const { data, error } = await supabaseClient
+    .from("users")
+    .select("elo")
+    .eq("id", user.id)
+    .single();
+  if (error) console.error(error);
   if (data?.elo) elo = data.elo;
-  document.getElementById("eloDisplay").innerText = `Elo: ${elo}`;
+  document.getElementById("eloDisplay").innerText = `Elo : ${Math.round(elo)}`;
 }
 
-// --- Sauvegarder Elo ---
 async function saveUserElo(newElo) {
-  elo = newElo;
-  document.getElementById("eloDisplay").innerText = `Elo: ${Math.round(elo)}`;
-  await supabase.from("users").update({ elo }).eq("id", user.id);
+  elo = Math.round(newElo);
+  document.getElementById("eloDisplay").innerText = `Elo : ${elo}`;
+  const { error } = await supabaseClient
+    .from("users")
+    .update({ elo })
+    .eq("id", user.id);
+  if (error) console.error("Erreur update elo:", error);
 }
 
-// --- Lobby ---
+// ------------------- LOBBY -------------------
 function showLobby() {
   document.getElementById("auth").style.display = "none";
   document.getElementById("lobby").style.display = "block";
@@ -109,8 +152,12 @@ function showLobby() {
 document.getElementById("createGame").onclick = async () => {
   const code = Math.random().toString(36).substring(2, 8).toUpperCase();
   document.getElementById("codeSection").innerText = "Code de partie : " + code;
-  const { data, error } = await supabase.from("games").insert({
-    code, host: user.id, state: "waiting", board: JSON.stringify(Array(6).fill(Array(7).fill(null)))
+  const emptyBoard = Array(6).fill(null).map(()=>Array(7).fill(null));
+  const { data, error } = await supabaseClient.from("games").insert({
+    code,
+    host: user.id,
+    state: "waiting",
+    board: JSON.stringify(emptyBoard)
   }).select().single();
   if (error) return alert(error.message);
   currentGame = data;
@@ -120,20 +167,23 @@ document.getElementById("createGame").onclick = async () => {
 
 document.getElementById("joinGame").onclick = async () => {
   const code = joinCode.value.trim().toUpperCase();
-  const { data, error } = await supabase.from("games").update({
-    guest: user.id, state: "playing"
-  }).eq("code", code).select().single();
-  if (error) return alert("Code invalide");
+  const { data, error } = await supabaseClient.from("games")
+    .update({ guest: user.id, state: "playing" })
+    .eq("code", code)
+    .select()
+    .single();
+  if (error || !data) return alert("Code invalide ou partie inexistante");
   currentGame = data;
   playerColor = "yellow";
   showGame();
 };
 
-// --- Game ---
+// ------------------- GAME -------------------
 function showGame() {
   document.getElementById("lobby").style.display = "none";
   document.getElementById("game").style.display = "block";
   renderGrid();
+  document.getElementById("turnInfo").innerText = "La partie commence !";
 }
 
 function renderGrid() {
@@ -143,42 +193,51 @@ function renderGrid() {
     for (let j = 0; j < 7; j++) {
       const cell = document.createElement("div");
       cell.classList.add("cell");
-      cell.onclick = () => dropToken(j);
+      cell.onclick = () => playTurn(j);
       grid.appendChild(cell);
     }
   }
 }
 
-async function dropToken(col) {
-  if (!isMyTurn) return;
-  isMyTurn = false;
-  // logique jeu...
-  // simulation fin
-  const win = Math.random() > 0.5 ? "win" : "lose";
-  await updateEloAfterMatch(win);
+async function playTurn(col) {
+  // Simulation pour test : win / lose aléatoire
+  const result = Math.random() > 0.5 ? "win" : "lose";
+  await updateEloAfterMatch(result);
 }
 
 async function updateEloAfterMatch(result) {
-  const { data } = await supabase.from("users").select("elo").eq("id", currentGame.host === user.id ? currentGame.guest : currentGame.host).single();
-  const advElo = data?.elo ?? 1000;
-  let S = result === "win" ? 1 : result === "lose" ? 0 : 0.5;
+  const advId = (currentGame.host === user.id) ? currentGame.guest : currentGame.host;
+  const { data: advData } = await supabaseClient
+    .from("users")
+    .select("elo")
+    .eq("id", advId)
+    .single();
+  const advElo = advData?.elo ?? 1000;
+
+  const S = result === "win" ? 1 : result === "lose" ? 0 : 0.5;
   const newElo = elo + 16 * (S - (1 / (1 + 10 ** ((advElo - elo) / 400))));
   await saveUserElo(newElo);
+
+  document.getElementById("turnInfo").innerText =
+    `Résultat : ${result.toUpperCase()} — Nouveau Elo : ${Math.round(newElo)}`;
 }
 
-// --- Live updates ---
+// ------------------- LIVE -------------------
 function watchGame(code) {
-  const channel = supabase
+  const channel = supabaseClient
     .channel("game_" + code)
-    .on("postgres_changes", { event: "*", schema: "public", table: "games", filter: `code=eq.${code}` },
-      payload => {
-        const game = payload.new;
-        if (game.state === "playing" && !document.getElementById("game").style.display.includes("block")) {
-          currentGame = game;
-          showGame();
-        }
+    .on("postgres_changes", {
+      event: "*",
+      schema: "public",
+      table: "games",
+      filter: `code=eq.${code}`
+    }, payload => {
+      const game = payload.new;
+      if (game.state === "playing" && document.getElementById("game").style.display === "none") {
+        currentGame = game;
+        showGame();
       }
-    )
+    })
     .subscribe();
 }
 </script>
