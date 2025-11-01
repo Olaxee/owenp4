@@ -77,8 +77,15 @@ async function startMatch(){
   document.getElementById('status').innerText='Recherche d\'adversaire...';
 
   const { data, error } = await supabase.rpc('join_or_create_match', { uid: currentUser.id });
+  console.log('RPC data:', data, 'error:', error);
+
   if(error){ 
     alert('Erreur matchmaking RPC: '+error.message);
+    return;
+  }
+
+  if(!data || data.length===0){
+    document.getElementById('status').innerText='Aucun match trouvé, réessayez.';
     return;
   }
 
@@ -87,6 +94,8 @@ async function startMatch(){
 
   if(currentMatch.status==='playing' && currentMatch.turn===currentUser.id){
     document.getElementById('status').innerText="C'est votre tour";
+  } else if(currentMatch.status==='waiting'){
+    document.getElementById('status').innerText="En attente d'un adversaire...";
   }
 }
 
@@ -106,6 +115,8 @@ function subscribeMatch(matchId){
       }
     } else if(match.status==='finished'){
       document.getElementById('status').innerText="Match terminé. Cliquez sur 'Trouver un adversaire' pour rejouer.";
+    } else if(match.status==='waiting'){
+      document.getElementById('status').innerText="En attente d'un adversaire...";
     }
   })
   .subscribe();
@@ -182,7 +193,7 @@ function endMatch(){
 // --- EVENTS ---
 document.getElementById('btnRegister').onclick=register;
 document.getElementById('btnLogin').onclick=login;
-document.getElementById('btnMatch').onclick=startMatch;
+document.getElementById('btnMatch').document.getElementById('btnMatch').onclick = startMatch;
 
 </script>
 </body>
